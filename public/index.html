@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flip 7 Scorekeeper</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero card">
+        <img class="hero-banner" src="/assets/Flip7_Logo_Lrg.png" alt="Flip 7 logo" />
+        <p class="eyebrow">Flip 7</p>
+        <h1>Round-by-round scorekeeping without the paper scraps.</h1>
+        <p class="intro">
+          Start a game, enter each round’s points, and keep a live leaderboard while everything is
+          saved into a small JSON file on disk.
+        </p>
+      </section>
+
+      <section class="grid">
+        <div class="card stack">
+          <h2>New game</h2>
+          <form id="new-game-form" class="stack">
+            <label>
+              <span>Game title</span>
+              <input id="game-title" name="title" type="text" placeholder="Friday game night" />
+            </label>
+            <label>
+              <span>Players</span>
+              <textarea
+                id="players"
+                name="players"
+                rows="5"
+                placeholder="One player per line"
+                required
+              ></textarea>
+            </label>
+            <button type="submit">Start fresh game</button>
+          </form>
+          <div id="restart-divider" class="form-divider hidden"><span>or</span></div>
+          <button id="restart-game" class="button-secondary hidden" type="button">
+            Start a new round with the same players
+          </button>
+          <p class="hint">Starting a new game archives the current one into local history.</p>
+        </div>
+
+        <div class="card stack">
+          <div class="row">
+            <h2>Current game</h2>
+            <button id="archive-game" class="button-secondary" type="button">Archive game</button>
+          </div>
+          <div id="game-meta" class="stack compact">
+            <p>No game started yet.</p>
+          </div>
+          <div id="current-players" class="stack compact hidden"></div>
+          <form id="add-player-form" class="inline-form hidden">
+            <input id="new-player-name" type="text" placeholder="Add late player" />
+            <button type="submit">Add player</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card stack">
+          <div class="row">
+            <h2>Leaderboard</h2>
+            <span id="round-count" class="badge">0 rounds</span>
+          </div>
+          <div id="leaderboard-empty">Scores will appear here once a game is running.</div>
+          <table id="leaderboard-table" class="hidden">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card stack">
+          <h2>Add round</h2>
+          <form id="round-form" class="stack">
+            <div id="round-form-status" class="hint hidden"></div>
+            <div id="round-score-fields" class="stack compact"></div>
+            <label>
+              <span>Round note</span>
+              <input id="round-note" type="text" placeholder="Optional note" />
+            </label>
+            <button id="save-round-button" type="submit">Save round</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card stack">
+        <h2>Round history</h2>
+        <div id="rounds-empty">No rounds yet.</div>
+        <div id="rounds-list" class="stack compact"></div>
+      </section>
+
+      <section class="card stack">
+        <h2>Archived games</h2>
+        <div id="history-empty">Archived games will show up here.</div>
+        <div id="history-list" class="stack compact"></div>
+      </section>
+
+      <footer class="fine-print">
+        <p>Made in Sibbarp.</p>
+        <p>Fram-vajbad av disco m.h.a. Codex!</p>
+      </footer>
+    </main>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    <section id="history-modal" class="modal hidden" aria-live="polite">
+      <div id="history-modal-backdrop" class="modal-backdrop"></div>
+      <div class="modal-panel">
+        <div class="history-modal-header">
+          <div>
+            <p class="winner-label">Archived game</p>
+            <h2 id="history-modal-title">Game summary</h2>
+            <p id="history-modal-meta" class="hint"></p>
+          </div>
+          <button id="history-modal-close" class="icon-button" type="button" aria-label="Close summary">×</button>
+        </div>
+        <section class="stack compact">
+          <h3>Final score</h3>
+          <div id="history-modal-scoreboard" class="stack compact"></div>
+        </section>
+        <section class="stack compact">
+          <h3>Rounds</h3>
+          <div id="history-modal-rounds" class="stack compact"></div>
+        </section>
+      </div>
+    </section>
+    <section id="winner-overlay" class="winner-overlay hidden" aria-live="assertive">
+      <div class="winner-burst winner-burst-left"></div>
+      <div class="winner-burst winner-burst-right"></div>
+      <div class="winner-panel">
+        <p class="winner-label">Round complete</p>
+        <h2 id="winner-name">Winner</h2>
+        <p id="winner-score" class="winner-score">0 points</p>
+        <p class="winner-copy">Someone crossed 200 and took the game.</p>
+        <button id="winner-close" type="button">Keep celebrating</button>
+      </div>
+      <div class="confetti confetti-a"></div>
+      <div class="confetti confetti-b"></div>
+      <div class="confetti confetti-c"></div>
+    </section>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

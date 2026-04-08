@@ -1,0 +1,19 @@
+node_modules/
+dist/
+
+# Runtime data
+data/database.json
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
