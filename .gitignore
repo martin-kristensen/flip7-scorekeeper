@@ -12,6 +12,7 @@ logs/
 !.env.example
 
 # OS / editor files
+._*
 .DS_Store
 Thumbs.db
 Desktop.ini
