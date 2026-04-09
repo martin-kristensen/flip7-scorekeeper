@@ -61,7 +61,8 @@ const TRANSLATIONS = {
       continueCurrent: "Jump back in",
       activeGameLabel: "Live table",
       noActiveGame: "No live table right now.",
-      recentGames: "Recent games"
+      recentGames: "Recent games",
+      credits: "Built in Sibbarp by Martin Kristensen, Codex, and Klangen82."
     },
     newGame: {
       eyebrow: "Set the table",
@@ -223,7 +224,8 @@ const TRANSLATIONS = {
       continueCurrent: "Hoppa in igen",
       activeGameLabel: "Livebord",
       noActiveGame: "Inget livebord just nu.",
-      recentGames: "Nyliga spel"
+      recentGames: "Nyliga spel",
+      credits: "Byggt i Sibbarp av Martin Kristensen, Codex och Klangen82."
     },
     newGame: {
       eyebrow: "Ställ bordet",
@@ -825,6 +827,12 @@ function renderHomeScreen() {
             : ""
         }
       </div>
+      <p class="home-credits plain-copy">
+        Made in Sibbarp by
+        <a href="https://github.com/martin-kristensen" target="_blank" rel="noreferrer">Martin Kristensen</a>,
+        Codex and
+        <a href="https://github.com/Klangen82" target="_blank" rel="noreferrer">Klangen82</a>.
+      </p>
     </section>
     ${mobileRecentGames}
       ${

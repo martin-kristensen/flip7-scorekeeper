@@ -327,6 +327,15 @@ textarea {
   text-align: right;
 }
 
+.home-credits {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
 .primary-action,
 .secondary-action,
 .ghost-action,
