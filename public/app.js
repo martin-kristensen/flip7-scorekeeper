@@ -230,17 +230,17 @@ const TRANSLATIONS = {
     newGame: {
       eyebrow: "Ställ bordet",
       title: "Dela ut ett nytt spel",
-      lead: "Välj läge, lägg till spelare och kör igång snabbt.",
+      lead: "Välj läge, lägg till spelare och sätt igång snabbt.",
       titleLabel: "Bordets namn (valfritt)",
       titlePlaceholder: "Fredagsduellen",
-      modeLabel: "Deck / läge",
+      modeLabel: "Läge / kortlek",
       winningScoreLabel: "Målpoäng för detta spel",
       playersLabel: "Spelare vid bordet",
       playerPlaceholder: "Skriv en spelare",
-      playerHelp: "Tryck Enter eller Next för att lägga till varje spelare snabbt.",
-      addedPlayers: "Spelare i kön",
-      startGame: "Dela spelet",
-      defaultWinningScore: "Standardmål: vinn på 200.",
+      playerHelp: "Tryck Enter eller Nästa för att lägga till varje spelare snabbt.",
+      addedPlayers: "Tillagda spelare",
+      startGame: "Dela ut korten",
+      defaultWinningScore: "Standardmål: 200 poäng.",
       noPlayersYet: "Inga spelare ännu.",
       duplicatePlayer: "Den spelaren finns redan."
     },
@@ -252,7 +252,7 @@ const TRANSLATIONS = {
       savedSection: "Spelarkiv",
       continueCard: "Hoppa in igen",
       resumeCard: "Hoppa in igen",
-      archiveCard: "Lägg undan",
+      archiveCard: "Flytta till arkiv",
       deleteCard: "Ta bort",
       lastPlayed: "Senast spelat",
       playersLabel: ({ count }) => `${count} spelare`,
@@ -266,31 +266,31 @@ const TRANSLATIONS = {
       noGame: "Inget livebord ännu.",
       winningScore: "Mål",
       roundScores: "Omgångspoäng",
-      gameDetails: "Speldetaljer & anteckning",
+      gameDetails: "Speldetaljer och anteckning",
       orderBy: "Ordning",
-      enteredOrder: "Inmatad ordning",
+      enteredOrder: "Som inmatat",
       leaderFirst: "Ledaren först",
       roundNumber: "Omgång {{count}}",
       roundNote: "Anteckning för rundan (valfri)",
       saveRound: "Nästa omgång",
-      archiveGame: "Lägg undan spel",
+      archiveGame: "Flytta till arkiv",
       newGame: "Starta ett spel",
       playAgain: "Spela igen",
       confirmTitle: "Fortsätt till nästa omgång?",
       finishedTitle: "Spelet är slut",
-      finishedLead: "Någon nådde målet.",
+      finishedLead: "Någon har nått målet.",
       winnerLabel: "Vinnare",
-      askContinue: "Ingen har nått målet ännu. Vill du köra en runda till ändå?",
+      askContinue: "Ingen har nått målet ännu. Vill du köra en omgång till ändå?",
       continueNextRound: "Fortsätt till nästa omgång",
       currentTotals: "Nuvarande totalsummor",
       leaderboardLabel: "Tabell"
     },
     stats: {
       eyebrow: "Statistik",
-      title: "Poängberättelse",
+      title: "Poängstatistik",
       lead: "En snabb blick på det aktiva spelet eller det senaste avslutade.",
       noStats: "Starta eller fortsätt ett spel för att se siffrorna.",
-      leader: "Först",
+      leader: "Ledare",
       highestSingleScore: "Högsta enskilda poäng",
       lowestSingleScore: "Lägsta enskilda poäng",
       totalRounds: "Totalt antal omgångar",
@@ -305,7 +305,7 @@ const TRANSLATIONS = {
     settings: {
       eyebrow: "Inställningar",
       title: "Bordets inställningar",
-      lead: "Ställ in dina standarder och håll spelet i gång.",
+      lead: "Ställ in dina val och håll spelet i gång.",
       defaultWinningScore: "Standardmål",
       askBeforeNextRound: "Fråga innan du går vidare om ingen har vunnit",
       theme: "Tema",
@@ -327,7 +327,7 @@ const TRANSLATIONS = {
       playerRemoved: "Spelare borttagen.",
       roundSaved: "Rundan är låst.",
       gameFinished: "Spelet är slut.",
-      gameArchived: "Spelet är undanlagt.",
+      gameArchived: "Spelet är arkiverat.",
       gameResumed: "Spelet är öppnat igen.",
       gameDeleted: "Sparat spel borttaget.",
       preferencesReset: "Bordets inställningar återställda."
@@ -828,10 +828,10 @@ function renderHomeScreen() {
         }
       </div>
       <p class="home-credits plain-copy">
-        Made in Sibbarp by
-        <a href="https://github.com/martin-kristensen" target="_blank" rel="noreferrer">Martin Kristensen</a>,
-        Codex and
-        <a href="https://github.com/Klangen82" target="_blank" rel="noreferrer">Klangen82</a>.
+        Vibbed in Sibbarp by
+        <a href="https://github.com/martin-kristensen" target="_blank" rel="noreferrer">Disco</a>,
+        <a href="https://github.com/Klangen82" target="_blank" rel="noreferrer">Klangen82</a>
+        and Codex.
       </p>
     </section>
     ${mobileRecentGames}
@@ -899,6 +899,7 @@ function renderNewGameScreen() {
               type="text"
               inputmode="text"
               autocomplete="off"
+              enterkeyhint="next"
               placeholder="${escapeHtml(t("newGame.playerPlaceholder"))}"
               value="${escapeHtml(draft.playerInput)}"
             />
@@ -931,9 +932,15 @@ function renderNewGameScreen() {
         </div>
         <label class="field">
           <span class="field-label">${escapeHtml(t("newGame.titleLabel"))}</span>
-          <input id="new-game-title" name="title" type="text" placeholder="${escapeHtml(
-            t("newGame.titlePlaceholder")
-          )}" value="${escapeHtml(draft.title)}" />
+          <input
+            id="new-game-title"
+            name="title"
+            type="text"
+            inputmode="text"
+            enterkeyhint="next"
+            placeholder="${escapeHtml(t("newGame.titlePlaceholder"))}"
+            value="${escapeHtml(draft.title)}"
+          />
         </label>
         <div class="field">
           <span class="field-label">${escapeHtml(t("newGame.modeLabel"))}</span>
@@ -966,6 +973,7 @@ function renderNewGameScreen() {
             min="1"
             step="1"
             inputmode="numeric"
+            enterkeyhint="next"
             value="${escapeHtml(String(draft.winningScore))}"
           />
         </label>
