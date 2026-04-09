@@ -1,22 +1,92 @@
+import "dotenv/config";
 import crypto from "node:crypto";
 import path from "node:path";
 import express from "express";
-import { getWinnerSummary, isGameFinished, JsonStore, summarizeGame } from "./store";
-import { Game, Player, Round, RoundScore } from "./types";
+import { Pool } from "pg";
+import { getWinnerSummary, isGameFinished, PostgresStore, summarizeGame } from "./store";
+import { Game, GameMode, Player, Round, RoundScore } from "./types";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const appRoot = path.resolve(__dirname, "..");
 const publicDirectory = path.join(appRoot, "public");
-const store = new JsonStore(path.join(appRoot, "data", "database.json"));
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("Set DATABASE_URL to a Postgres connection string before starting the app.");
+}
+
+const pool = new Pool({ connectionString: databaseUrl });
+const store = new PostgresStore(pool);
+const sessionCookieName = "flip7_session_id";
+const sessionCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 1000 * 60 * 60 * 24 * 365
+};
+
+type SessionRequest = express.Request & {
+  sessionId: string;
+};
+
+const parseCookies = (cookieHeader: string | undefined) => {
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader.split(";").reduce<Record<string, string>>((cookies, cookie) => {
+    const separator = cookie.indexOf("=");
+
+    if (separator < 0) {
+      return cookies;
+    }
+
+    const key = decodeURIComponent(cookie.slice(0, separator).trim());
+    const value = decodeURIComponent(cookie.slice(separator + 1).trim());
+    cookies[key] = value;
+    return cookies;
+  }, {});
+};
 
 app.use(express.json());
+app.use((request, response, next) => {
+  const cookies = parseCookies(request.headers.cookie);
+  const existingSessionId = cookies[sessionCookieName];
+  const sessionId = existingSessionId || crypto.randomUUID();
+
+  if (!existingSessionId) {
+    response.cookie(sessionCookieName, sessionId, sessionCookieOptions);
+  }
+
+  (request as SessionRequest).sessionId = sessionId;
+  next();
+});
 app.use(express.static(publicDirectory));
 
 const createId = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
+const getSessionId = (request: express.Request) => (request as SessionRequest).sessionId;
+const isGameMode = (value: unknown): value is GameMode =>
+  value === "classic" || value === "vengeance" || value === "mixed";
+const normalizeWinningScore = (value: unknown, fallback = 200) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
 
-const createGame = (title: string, playerNames: string[]): Game => {
+const readDatabase = (request: express.Request) => store.read(getSessionId(request));
+
+const updateDatabase = (
+  request: express.Request,
+  updater: Parameters<PostgresStore["update"]>[1]
+) => store.update(getSessionId(request), updater);
+
+const createGame = (
+  title: string,
+  playerNames: string[],
+  options?: { gameMode?: unknown; winningScore?: unknown }
+): Game => {
   const players: Player[] = Array.from(
     new Set(playerNames.map((name) => name.trim()).filter(Boolean))
   ).map((name) => ({
@@ -33,6 +103,8 @@ const createGame = (title: string, playerNames: string[]): Game => {
   return {
     id: createId(),
     title: title.trim() || "Flip 7 Game",
+    gameMode: isGameMode(options?.gameMode) ? options.gameMode : "classic",
+    winningScore: normalizeWinningScore(options?.winningScore, 200),
     createdAt: timestamp,
     updatedAt: timestamp,
     completedAt: null,
@@ -61,17 +133,19 @@ const toGameResponse = (game: Game | null) => {
 };
 
 app.get("/api/game", async (_request, response) => {
-  const database = await store.read();
+  const database = await readDatabase(_request);
   response.json({ game: toGameResponse(database.currentGame), history: database.gameHistory });
 });
 
 app.post("/api/game", async (request, response) => {
   const title = String(request.body?.title ?? "");
   const playerNames = Array.isArray(request.body?.players) ? request.body.players.map(String) : [];
+  const gameMode = request.body?.gameMode;
+  const winningScore = request.body?.winningScore;
 
   try {
-    const game = createGame(title, playerNames);
-    const database = await store.update((current) => ({
+    const game = createGame(title, playerNames, { gameMode, winningScore });
+    const database = await updateDatabase(request, (current) => ({
       currentGame: game,
       gameHistory: archiveCurrentGame(current.gameHistory, current.currentGame)
     }));
@@ -90,7 +164,7 @@ app.post("/api/players", async (request, response) => {
     return;
   }
 
-  const database = await store.update((current) => {
+  const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
       throw new Error("Start a game before adding players.");
     }
@@ -129,7 +203,7 @@ app.post("/api/players", async (request, response) => {
 app.delete("/api/players/:id", async (request, response) => {
   const playerId = String(request.params.id ?? "");
 
-  const database = await store.update((current) => {
+  const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
       throw new Error("Start a game before removing players.");
     }
@@ -170,14 +244,18 @@ app.delete("/api/players/:id", async (request, response) => {
 app.post("/api/game/restart", async (request, response) => {
   const title = String(request.body?.title ?? "").trim();
 
-  const database = await store.update((current) => {
+  const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
       throw new Error("There is no current game to restart.");
     }
 
     const nextGame = createGame(
       title || current.currentGame.title,
-      current.currentGame.players.map((player) => player.name)
+      current.currentGame.players.map((player) => player.name),
+      {
+        gameMode: current.currentGame.gameMode,
+        winningScore: current.currentGame.winningScore
+      }
     );
 
     return {
@@ -196,11 +274,39 @@ app.post("/api/game/restart", async (request, response) => {
   response.status(201).json({ game: toGameResponse(database.currentGame), history: database.gameHistory });
 });
 
+app.post("/api/game/:id/resume", async (request, response) => {
+  const gameId = String(request.params.id ?? "");
+
+  const database = await updateDatabase(request, (current) => {
+    const gameToResume = current.gameHistory.find((game) => game.id === gameId);
+
+    if (!gameToResume) {
+      throw new Error("Archived game not found.");
+    }
+
+    const nextHistory = current.gameHistory.filter((game) => game.id !== gameId);
+
+    return {
+      currentGame: gameToResume,
+      gameHistory: archiveCurrentGame(nextHistory, current.currentGame)
+    };
+  }).catch((error: Error) => {
+    response.status(404).json({ error: error.message });
+    return null;
+  });
+
+  if (!database) {
+    return;
+  }
+
+  response.status(200).json({ game: toGameResponse(database.currentGame), history: database.gameHistory });
+});
+
 app.post("/api/rounds", async (request, response) => {
   const note = String(request.body?.note ?? "").trim();
   const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
 
-  const database = await store.update((current) => {
+  const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
       throw new Error("Start a game before adding rounds.");
     }
@@ -266,7 +372,7 @@ app.post("/api/rounds", async (request, response) => {
 });
 
 app.delete("/api/game", async (_request, response) => {
-  const database = await store.update((current) => ({
+  const database = await updateDatabase(_request, (current) => ({
     currentGame: null,
     gameHistory: archiveCurrentGame(current.gameHistory, current.currentGame)
   }));
@@ -277,7 +383,7 @@ app.delete("/api/game", async (_request, response) => {
 app.delete("/api/history/:id", async (request, response) => {
   const gameId = String(request.params.id ?? "");
 
-  const database = await store.update((current) => {
+  const database = await updateDatabase(request, (current) => {
     const existingCount = current.gameHistory.length;
     const gameHistory = current.gameHistory.filter((game) => game.id !== gameId);
 

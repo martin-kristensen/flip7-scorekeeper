@@ -3,6 +3,8 @@ export interface Player {
   name: string;
 }
 
+export type GameMode = "classic" | "vengeance" | "mixed";
+
 export interface RoundScore {
   playerId: string;
   points: number;
@@ -18,6 +20,8 @@ export interface Round {
 export interface Game {
   id: string;
   title: string;
+  gameMode: GameMode;
+  winningScore: number;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;

@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: flip7_scorekeeper
+      POSTGRES_USER: flip7
+      POSTGRES_PASSWORD: flip7
+    volumes:
+      - flip7_scorekeeper_db:/var/lib/postgresql/data
+
+volumes:
+  flip7_scorekeeper_db:
