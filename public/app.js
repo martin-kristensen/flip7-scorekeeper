@@ -666,9 +666,9 @@ function ensureRoundDraft(game) {
 
   const nextScores = {};
   for (const player of game.players) {
-    nextScores[player.id] = Number.isFinite(Number(state.draft.roundScores[player.id]))
-      ? Number(state.draft.roundScores[player.id])
-      : 0;
+    const currentValue = state.draft.roundScores[player.id];
+    nextScores[player.id] =
+      currentValue === "" || currentValue === null || currentValue === undefined ? "" : String(currentValue);
   }
 
   state.draft.roundScores = nextScores;
@@ -786,23 +786,46 @@ function renderHomeScreen() {
             ${recentGames
               .map((game) => {
                 const modeLabel = game.gameMode ? gameModeLabel(game.gameMode) : "";
+                const canDelete = !(currentGame && currentGame.id === game.id);
                 return `
-                  <button
-                    class="home-history-item"
-                    type="button"
+                  <div
+                    class="home-history-item-shell"
+                    data-swipe-delete-card
                     data-game-card="${escapeHtml(game.id)}"
-                    data-home-recent-card
-                    data-home-current="${String(Boolean(currentGame && currentGame.id === game.id))}"
+                    data-home-current="${String(!canDelete)}"
                   >
-                    <div class="home-history-copy">
-                      <strong class="home-history-title">${escapeHtml(game.title)}</strong>
-                      <div class="home-history-meta">
-                        <span>${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</span>
-                        ${modeLabel ? `<span>${escapeHtml(modeLabel)}</span>` : ""}
+                    <button
+                      class="home-history-item"
+                      type="button"
+                      data-action="open-home-game"
+                      data-game-id="${escapeHtml(game.id)}"
+                      data-home-current="${String(!canDelete)}"
+                    >
+                      <div class="home-history-copy">
+                        <strong class="home-history-title">${escapeHtml(game.title)}</strong>
+                        <div class="home-history-meta">
+                          <span>${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</span>
+                          ${modeLabel ? `<span>${escapeHtml(modeLabel)}</span>` : ""}
+                        </div>
                       </div>
-                    </div>
-                    <span class="home-history-time">${escapeHtml(formatDateTime(game.updatedAt))}</span>
-                  </button>
+                      <span class="home-history-time">${escapeHtml(formatDateTime(game.updatedAt))}</span>
+                    </button>
+                    ${
+                      canDelete
+                        ? `<div class="home-history-actions" aria-hidden="true">
+                            <button
+                              class="home-history-delete"
+                              type="button"
+                              data-action="delete-home-game"
+                              data-game-id="${escapeHtml(game.id)}"
+                              aria-label="${escapeHtml(t("common.delete"))}"
+                            >
+                              ${escapeHtml(t("common.delete"))}
+                            </button>
+                          </div>`
+                        : ""
+                    }
+                  </div>
                 `;
               })
               .join("")}
@@ -1001,6 +1024,58 @@ function renderGameCard(game, { current = false } = {}) {
   const menuLabel = current ? t("existing.archiveCard") : t("existing.deleteCard");
   const cardAction = current ? "go-current-game" : "resume-game";
 
+  if (!current) {
+    return `
+      <div
+        class="home-history-item-shell game-list-item-shell"
+        data-swipe-delete-card
+        data-game-card="${escapeHtml(game.id)}"
+      >
+        <button
+          class="home-history-item game-list-item"
+          type="button"
+          data-action="${cardAction}"
+          data-game-id="${escapeHtml(game.id)}"
+        >
+          <div class="home-history-copy game-list-copy">
+            <strong class="home-history-title">${escapeHtml(game.title)}</strong>
+            <div class="home-history-meta">
+              <span class="pill">${escapeHtml(gameModeLabel(game.gameMode))}</span>
+              <span>${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</span>
+              <span>${escapeHtml(t("existing.roundsLabel", { count: game.rounds.length }))}</span>
+            </div>
+            <div class="home-history-meta game-list-submeta">
+              <span>${escapeHtml(t("existing.lastPlayed"))}: ${escapeHtml(formatDateTime(game.updatedAt))}</span>
+              <span>${escapeHtml(t("current.winningScore"))}: ${formatNumber(game.winningScore)}</span>
+            </div>
+            <div class="home-history-meta game-list-submeta">
+              <span class="pill ${statusPillClass}">${escapeHtml(status)}</span>
+              ${
+                leader
+                  ? `<span>${escapeHtml(t("stats.leader"))}: ${escapeHtml(leader.name)} ${formatNumber(
+                      leader.total
+                    )} ${escapeHtml(t("common.points"))}</span>`
+                  : ""
+              }
+            </div>
+          </div>
+          <span class="home-history-time">${escapeHtml(formatDateTime(game.updatedAt))}</span>
+        </button>
+        <div class="home-history-actions" aria-hidden="true">
+          <button
+            class="home-history-delete"
+            type="button"
+            data-action="delete-home-game"
+            data-game-id="${escapeHtml(game.id)}"
+            aria-label="${escapeHtml(t("common.delete"))}"
+          >
+            ${escapeHtml(t("common.delete"))}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <article class="game-card ${current ? "game-card-active" : ""}" data-game-card="${escapeHtml(game.id)}">
       <div class="game-card-header">
@@ -1043,6 +1118,15 @@ function renderGameCard(game, { current = false } = {}) {
       <button class="hidden" type="button" data-menu-label="${escapeHtml(game.id)}">${escapeHtml(menuLabel)}</button>
     </article>
   `;
+}
+
+function openGameFromList(gameId) {
+  if (state.data.currentGame?.id === gameId) {
+    setRoute("current-game");
+    return;
+  }
+
+  return resumeGame(gameId);
 }
 
 function renderExistingGamesScreen() {
@@ -1152,7 +1236,7 @@ function renderCurrentGameScreen() {
             ${orderedPlayers
               .map((player, index) => {
                 const total = leaderboard.find((entry) => entry.playerId === player.id)?.total ?? 0;
-                const value = state.draft.roundScores[player.id] ?? 0;
+                const value = state.draft.roundScores[player.id] ?? "";
                 const nextHint = index < orderedPlayers.length - 1 ? "next" : "done";
                 return `
                   <div class="score-row">
@@ -1161,10 +1245,12 @@ function renderCurrentGameScreen() {
                       <span class="muted">${formatNumber(total)} ${escapeHtml(t("common.points"))}</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
                       step="1"
                       inputmode="numeric"
                       enterkeyhint="${nextHint}"
+                      pattern="[0-9]*"
+                      autocomplete="off"
                       data-player-id="${escapeHtml(player.id)}"
                       data-player-index="${index}"
                       value="${escapeHtml(value)}"
@@ -1827,8 +1913,12 @@ function focusCurrentScoreInput(target = null) {
 
 function clearHomeSwipeState() {
   const swipe = state.homeSwipe;
+  if (swipe?.shell instanceof HTMLElement) {
+    swipe.shell.classList.remove("swiping");
+    swipe.shell.classList.remove("revealed");
+  }
+
   if (swipe?.element instanceof HTMLElement) {
-    swipe.element.classList.remove("swiping");
     swipe.element.style.transform = "";
     swipe.element.style.opacity = "";
   }
@@ -1850,22 +1940,32 @@ function beginHomeSwipe(target, event) {
     return;
   }
 
-  if (target.dataset.homeCurrent === "true") {
+  if (target.closest(".home-history-actions")) {
+    return;
+  }
+
+  const swipeTarget = target.closest("[data-swipe-delete-card]");
+  if (!(swipeTarget instanceof HTMLElement)) {
+    return;
+  }
+
+  if (swipeTarget.dataset.homeCurrent === "true") {
     return;
   }
 
   clearHomeSwipeState();
   state.homeSwipe = {
-    gameId: target.dataset.gameCard,
+    gameId: swipeTarget.dataset.gameCard,
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
     currentX: event.clientX,
     currentY: event.clientY,
-    element: target,
-    deleted: false
+    shell: swipeTarget,
+    element: swipeTarget.querySelector(".home-history-item") || swipeTarget,
+    revealed: false
   };
-  target.classList.add("swiping");
+  swipeTarget.classList.add("swiping");
 }
 
 function moveHomeSwipe(event) {
@@ -1885,6 +1985,7 @@ function moveHomeSwipe(event) {
   if (deltaX >= 0) {
     swipe.element.style.transform = "";
     swipe.element.style.opacity = "";
+    swipe.element.classList.remove("revealed");
     return;
   }
 
@@ -1901,21 +2002,22 @@ async function endHomeSwipe(event) {
 
   const deltaX = event.clientX - swipe.startX;
   const deltaY = event.clientY - swipe.startY;
-  const shouldDelete = deltaX < -88 && Math.abs(deltaX) > Math.abs(deltaY) + 10;
-
-  if (shouldDelete && swipe.gameId) {
-    swipe.deleted = true;
-    clearHomeSwipeState();
-    suppressHomeItemClick(swipe.gameId);
-    await deleteArchivedGame(swipe.gameId);
-    return;
-  }
+  const shouldReveal = deltaX < -88 && Math.abs(deltaX) > Math.abs(deltaY) + 10;
 
   if (Math.abs(deltaX) > 12) {
     suppressHomeItemClick(swipe.gameId);
   }
 
-  swipe.element.classList.remove("swiping");
+  if (shouldReveal) {
+    swipe.revealed = true;
+    swipe.shell?.classList.add("revealed");
+    swipe.element.style.transform = "translateX(-96px)";
+    swipe.element.style.opacity = "1";
+    return;
+  }
+
+  swipe.shell?.classList.remove("swiping");
+  swipe.shell?.classList.remove("revealed");
   swipe.element.style.transform = "";
   swipe.element.style.opacity = "";
   clearHomeSwipeState();
@@ -1999,7 +2101,7 @@ async function saveRound() {
 
   const scores = game.players.map((player) => ({
     playerId: player.id,
-    points: Number(state.draft.roundScores[player.id] ?? 0)
+    points: Number(state.draft.roundScores[player.id] || 0)
   }));
 
   try {
@@ -2077,8 +2179,16 @@ function wireGlobalEvents() {
       return;
     }
 
-    const item = target.closest("[data-home-recent-card]");
+    if (target.closest(".home-history-actions")) {
+      return;
+    }
+
+    const item = target.closest("[data-swipe-delete-card]");
     if (!(item instanceof HTMLElement)) {
+      return;
+    }
+
+    if (item.classList.contains("revealed")) {
       return;
     }
 
@@ -2127,7 +2237,7 @@ function wireGlobalEvents() {
     } else if (target.matches('#current-game-form input[data-player-id]')) {
       const playerId = target.dataset.playerId;
       if (playerId) {
-        state.draft.roundScores[playerId] = Number(target.value);
+        state.draft.roundScores[playerId] = target.value;
       }
     } else if (target.id === "round-note") {
       state.draft.roundNote = target.value;
@@ -2174,11 +2284,33 @@ function wireGlobalEvents() {
       return;
     }
 
+    const swipeActions = target.closest(".home-history-actions");
+    if (swipeActions instanceof HTMLElement) {
+      const swipeCard = swipeActions.closest("[data-swipe-delete-card]");
+      const gameId = swipeCard?.dataset.gameCard;
+      if (gameId) {
+        clearHomeSwipeState();
+        await deleteArchivedGame(gameId);
+        return;
+      }
+    }
+
     const actionTarget = target.closest("[data-action]");
     if (actionTarget) {
       const action = actionTarget.dataset.action;
       const gameId = actionTarget.dataset.gameId;
       const playerIndex = Number(actionTarget.dataset.playerIndex);
+      const swipeCard = actionTarget.closest("[data-swipe-delete-card]");
+
+      if (
+        gameId &&
+        state.homeSwipeSuppressClickId === gameId &&
+        action !== "delete-home-game" &&
+        !(swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed"))
+      ) {
+        state.homeSwipeSuppressClickId = null;
+        return;
+      }
 
       if (action === "go-new-game") {
         setRoute("new-game");
@@ -2186,6 +2318,12 @@ function wireGlobalEvents() {
         setRoute("existing-games");
       } else if (action === "go-current-game") {
         setRoute("current-game");
+      } else if (action === "open-home-game" && gameId) {
+        if (swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed")) {
+          clearHomeSwipeState();
+          return;
+        }
+        await openGameFromList(gameId);
       } else if (action === "set-new-game-mode" && actionTarget.dataset.mode) {
         state.draft.newGame.gameMode = actionTarget.dataset.mode;
         render();
@@ -2197,6 +2335,10 @@ function wireGlobalEvents() {
         state.draft.currentGameOrder = actionTarget.dataset.order === "leader" ? "leader" : "entered";
         render();
       } else if (action === "resume-game" && gameId) {
+        if (swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed")) {
+          clearHomeSwipeState();
+          return;
+        }
         await resumeGame(gameId);
       } else if (action === "archive-game") {
         if (gameId && state.data.currentGame?.id !== gameId) {
@@ -2212,6 +2354,9 @@ function wireGlobalEvents() {
         await archiveCurrentGame();
       } else if (action === "play-again") {
         playAgain();
+      } else if (action === "delete-home-game" && gameId) {
+        clearHomeSwipeState();
+        await deleteArchivedGame(gameId);
       } else if (action === "reset-prefs") {
         resetPreferences();
       } else if (action === "resume-current") {
@@ -2227,16 +2372,18 @@ function wireGlobalEvents() {
         return;
       }
 
+      const swipeCard = target.closest("[data-swipe-delete-card]");
+      if (swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed")) {
+        clearHomeSwipeState();
+        return;
+      }
+
       if (state.homeSwipeSuppressClickId === gameId) {
         state.homeSwipeSuppressClickId = null;
         return;
       }
 
-      if (state.data.currentGame?.id === gameId) {
-        setRoute("current-game");
-      } else {
-        await resumeGame(gameId);
-      }
+      await openGameFromList(gameId);
       return;
     }
 

@@ -267,6 +267,16 @@ textarea {
   gap: 0;
 }
 
+.home-history-item-shell {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.home-history-item-shell:last-child {
+  border-bottom: 0;
+}
+
 .home-history-item {
   display: flex;
   align-items: flex-start;
@@ -275,7 +285,6 @@ textarea {
   width: 100%;
   padding: 0.95rem 0;
   border: 0;
-  border-bottom: 1px solid var(--surface-border);
   border-radius: 0;
   background: transparent;
   color: inherit;
@@ -283,6 +292,8 @@ textarea {
   touch-action: pan-y;
   user-select: none;
   will-change: transform, opacity;
+  position: relative;
+  z-index: 1;
   transition:
     transform 180ms ease,
     opacity 180ms ease;
@@ -294,10 +305,6 @@ textarea {
 
 .home-history-item:active {
   opacity: 0.94;
-}
-
-.home-history-item:last-child {
-  border-bottom: 0;
 }
 
 .home-history-copy {
@@ -325,6 +332,57 @@ textarea {
   color: var(--muted);
   font-size: 0.88rem;
   text-align: right;
+}
+
+.home-history-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 96px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 180ms ease;
+}
+
+.home-history-item-shell.swiping .home-history-actions,
+.home-history-item-shell.revealed .home-history-actions {
+  opacity: 1;
+}
+
+.home-history-item-shell.revealed .home-history-actions {
+  pointer-events: auto;
+}
+
+.home-history-delete {
+  width: calc(100% - 0.6rem);
+  min-height: calc(100% - 0.6rem);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, white 12%, var(--danger));
+  background: color-mix(in srgb, var(--danger) 92%, black);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+}
+
+.game-list-item-shell {
+  margin: 0;
+}
+
+.game-list-item {
+  padding-inline-end: 0.4rem;
+}
+
+.game-list-copy {
+  gap: 0.35rem;
+}
+
+.game-list-submeta {
+  font-size: 0.84rem;
 }
 
 .home-credits {
