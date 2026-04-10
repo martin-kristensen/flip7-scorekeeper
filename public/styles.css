@@ -317,6 +317,10 @@ textarea {
 .home-history-title {
   font-size: 1rem;
   line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-history-meta {
@@ -630,6 +634,10 @@ textarea {
 
 .game-card-leader {
   flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pill {
@@ -720,8 +728,9 @@ textarea {
 .game-card-title strong {
   min-width: 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   line-height: 1.08;
 }
 
@@ -753,8 +762,10 @@ textarea {
   display: block;
   font-weight: 700;
   line-height: 1.1;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .score-row input {
@@ -796,8 +807,9 @@ textarea {
 .current-winner-line strong {
   min-width: 0;
   color: var(--text);
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .current-round-nav {
@@ -1058,6 +1070,12 @@ textarea {
   gap: 0.55rem;
 }
 
+.current-details-body > .stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
 .current-summary-grid {
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.5rem;
@@ -1169,8 +1187,83 @@ textarea {
   color: #fff9f2;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
   max-width: 100%;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+}
+
+.current-roster-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.current-roster-add {
+  align-items: end;
+}
+
+.current-roster-add input {
+  min-width: 0;
+}
+
+.current-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.current-roster-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.25rem 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+}
+
+.current-roster-item.is-inactive {
+  opacity: 0.82;
+}
+
+.current-roster-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.current-roster-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-roster-remove {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.current-roster-restore {
+  flex: 0 0 auto;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.subsection-title {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--muted-strong);
+  letter-spacing: 0.01em;
 }
 
 .celebration-pulse {

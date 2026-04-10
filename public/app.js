@@ -3,7 +3,6 @@ const DEFAULT_SETTINGS = {
   theme: "system",
   language: "en",
   defaultWinningScore: 200,
-  confirmBeforeNextRound: false,
   hiddenRecentGameIds: []
 };
 
@@ -105,7 +104,19 @@ const TRANSLATIONS = {
       noGame: "No live table yet.",
       winningScore: "Target",
       roundScores: "Round scores",
-      gameDetails: "Game details & note",
+      gameDetails: "Game details, note & players",
+      managePlayers: "Manage players",
+      addPlayer: "Add player",
+      activatePlayer: "Activate",
+      playerPlaceholder: "Type a player name",
+      activePlayers: "Active players",
+      inactivePlayers: "Inactive players",
+      appliesFutureRounds: "Applies to future rounds only.",
+      noActivePlayers: "No active players.",
+      noInactivePlayers: "No inactive players.",
+      inactive: "Inactive",
+      removePlayer: "Remove",
+      minimumPlayers: "Need at least two active players.",
       orderBy: "Order",
       enteredOrder: "Entered",
       leaderFirst: "Leader first",
@@ -168,7 +179,6 @@ const TRANSLATIONS = {
       title: "Table settings",
       lead: "Set your defaults and keep the game moving.",
       defaultWinningScore: "Default target score",
-      askBeforeNextRound: "Ask before moving on if nobody has won",
       theme: "Theme",
       language: "Language",
       light: "Light",
@@ -179,12 +189,18 @@ const TRANSLATIONS = {
       resetPrefs: "Reset table settings",
       keepNote: "New games keep their own target score."
     },
+    archiveConfirm: {
+      title: "Tuck away this game?",
+      message: "This game is still live. Tucking it away now will move it out of the table view.",
+      confirm: "Tuck away"
+    },
     celebration: {
       title: "Winner!"
     },
     toast: {
       gameStarted: "Game on.",
       playerAdded: "Player added.",
+      playerRestored: "Player restored.",
       playerRemoved: "Player removed.",
       roundSaved: "Round locked in.",
       gameFinished: "Game over.",
@@ -292,7 +308,19 @@ const TRANSLATIONS = {
       noGame: "Inget livebord ännu.",
       winningScore: "Mål",
       roundScores: "Omgångspoäng",
-      gameDetails: "Speldetaljer och anteckning",
+      gameDetails: "Speldetaljer, anteckning och spelare",
+      managePlayers: "Hantera spelare",
+      addPlayer: "Lägg till spelare",
+      activatePlayer: "Aktivera",
+      playerPlaceholder: "Skriv ett spelarnamn",
+      activePlayers: "Aktiva spelare",
+      inactivePlayers: "Inaktiva spelare",
+      appliesFutureRounds: "Gäller bara kommande omgångar.",
+      noActivePlayers: "Inga aktiva spelare.",
+      noInactivePlayers: "Inga inaktiva spelare.",
+      inactive: "Inaktiv",
+      removePlayer: "Ta bort",
+      minimumPlayers: "Minst två aktiva spelare krävs.",
       orderBy: "Ordning",
       enteredOrder: "Som inmatat",
       leaderFirst: "Ledaren först",
@@ -355,7 +383,6 @@ const TRANSLATIONS = {
       title: "Bordets inställningar",
       lead: "Ställ in dina val och håll spelet i gång.",
       defaultWinningScore: "Standardmål",
-      askBeforeNextRound: "Fråga innan du går vidare om ingen har vunnit",
       theme: "Tema",
       language: "Språk",
       light: "Ljus",
@@ -366,12 +393,18 @@ const TRANSLATIONS = {
       resetPrefs: "Återställ bordets inställningar",
       keepNote: "Nya spel behåller sitt eget mål."
     },
+    archiveConfirm: {
+      title: "Lägg undan det här spelet?",
+      message: "Det här spelet är fortfarande igång. Om du lägger undan det nu försvinner det från bordsvyn.",
+      confirm: "Lägg undan"
+    },
     celebration: {
       title: "Vinnare!"
     },
     toast: {
       gameStarted: "Spelet är igång.",
       playerAdded: "Spelare tillagd.",
+      playerRestored: "Spelare aktiverad.",
       playerRemoved: "Spelare borttagen.",
       roundSaved: "Rundan är låst.",
       gameFinished: "Spelet är slut.",
@@ -389,6 +422,7 @@ const state = {
   drawerOpen: false,
   menu: null,
   confirmNextRoundOpen: false,
+  confirmArchiveOpen: false,
   data: {
     currentGame: null,
     history: []
@@ -405,6 +439,8 @@ const state = {
     statsScope: "current",
     statsGameId: "",
     currentGameOrder: "entered",
+    currentGamePlayerInput: "",
+    currentGameFocusTarget: null,
     currentRoundKey: "new",
     liveRoundVersion: 0,
     roundNote: "",
@@ -437,6 +473,11 @@ const elements = {
   roundConfirmMessage: document.querySelector("#round-confirm-message"),
   roundConfirmContinue: document.querySelector("#round-confirm-continue"),
   roundConfirmCancel: document.querySelector("#round-confirm-cancel"),
+  archiveConfirmModal: document.querySelector("#archive-confirm-modal"),
+  archiveConfirmTitle: document.querySelector("#archive-confirm-title"),
+  archiveConfirmMessage: document.querySelector("#archive-confirm-message"),
+  archiveConfirmContinue: document.querySelector("#archive-confirm-continue"),
+  archiveConfirmCancel: document.querySelector("#archive-confirm-cancel"),
   celebration: document.querySelector("#celebration"),
   celebrationCanvas: document.querySelector("#celebration-canvas"),
   celebrationTitle: document.querySelector("#celebration-title"),
@@ -482,10 +523,6 @@ function loadSettings() {
         Number.isFinite(Number(parsed.defaultWinningScore)) && Number(parsed.defaultWinningScore) > 0
           ? Number(parsed.defaultWinningScore)
           : DEFAULT_SETTINGS.defaultWinningScore,
-      confirmBeforeNextRound:
-        typeof parsed.confirmBeforeNextRound === "boolean"
-          ? parsed.confirmBeforeNextRound
-          : DEFAULT_SETTINGS.confirmBeforeNextRound,
       hiddenRecentGameIds: Array.isArray(parsed.hiddenRecentGameIds)
         ? parsed.hiddenRecentGameIds.filter((value) => typeof value === "string" && value.length > 0)
         : []
@@ -744,8 +781,60 @@ function buildAllGamesStats(games) {
   };
 }
 
+function isPlayerActiveAt(player, timestamp) {
+  if (!player?.isActive) {
+    return false;
+  }
+
+  const targetTime = Date.parse(timestamp);
+  if (!Number.isFinite(targetTime)) {
+    return true;
+  }
+
+  const joinedAt = Date.parse(player.joinedAt);
+  if (Number.isFinite(joinedAt) && targetTime < joinedAt) {
+    return false;
+  }
+
+  const removedAt = player.removedAt ? Date.parse(player.removedAt) : NaN;
+  if (Number.isFinite(removedAt) && targetTime >= removedAt) {
+    return false;
+  }
+
+  return true;
+}
+
+function getActiveGamePlayers(game) {
+  return [...(game?.players || [])].filter((player) => player.isActive);
+}
+
+function getActivePlayerCount(game) {
+  return getActiveGamePlayers(game).length;
+}
+
+function getPlayersActiveAt(game, timestamp) {
+  return [...(game?.players || [])].filter((player) => isPlayerActiveAt(player, timestamp));
+}
+
+function getRoundPlayers(game, roundKey = getRoundDraftKey()) {
+  if (!game) {
+    return [];
+  }
+
+  if (roundKey === "new") {
+    return getActiveGamePlayers(game);
+  }
+
+  const round = game.rounds.find((entry) => entry.id === roundKey);
+  if (!round) {
+    return getActiveGamePlayers(game);
+  }
+
+  return getPlayersActiveAt(game, round.createdAt);
+}
+
 function getCurrentGamePlayers(game) {
-  const basePlayers = [...(game?.players || [])];
+  const basePlayers = [...getRoundPlayers(game)];
   if (state.draft.currentGameOrder !== "leader") {
     return basePlayers;
   }
@@ -839,6 +928,7 @@ function snapshotAppState() {
     drawerOpen: state.drawerOpen,
     menu: state.menu ? { ...state.menu } : null,
     confirmNextRoundOpen: state.confirmNextRoundOpen,
+    confirmArchiveOpen: state.confirmArchiveOpen,
     homeSwipeSuppressClickId: state.homeSwipeSuppressClickId
   };
 }
@@ -852,6 +942,7 @@ function restoreAppState(snapshot) {
   state.drawerOpen = snapshot.drawerOpen;
   state.menu = snapshot.menu;
   state.confirmNextRoundOpen = snapshot.confirmNextRoundOpen;
+  state.confirmArchiveOpen = snapshot.confirmArchiveOpen;
   state.homeSwipeSuppressClickId = snapshot.homeSwipeSuppressClickId;
   clearHomeSwipeState();
 
@@ -980,6 +1071,7 @@ function setRoute(route, { replace = false } = {}) {
   state.drawerOpen = false;
   state.menu = null;
   state.confirmNextRoundOpen = false;
+  state.confirmArchiveOpen = false;
 
   if (replace) {
     window.location.replace(`#${route}`);
@@ -998,15 +1090,16 @@ function getRoundDraftKey(roundKey = state.draft.currentRoundKey) {
   return roundKey || "new";
 }
 
-function createBlankRoundDraft(game) {
+function createBlankRoundDraft(game, roundKey = getRoundDraftKey()) {
+  const players = getRoundPlayers(game, roundKey);
   return {
     roundNote: "",
-    roundScores: Object.fromEntries(game.players.map((player) => [player.id, ""]))
+    roundScores: Object.fromEntries(players.map((player) => [player.id, ""]))
   };
 }
 
 function createRoundDraftFromRound(game, round) {
-  const draft = createBlankRoundDraft(game);
+  const draft = createBlankRoundDraft(game, round?.id || "new");
 
   if (!round) {
     return draft;
@@ -1020,9 +1113,10 @@ function createRoundDraftFromRound(game, round) {
   return draft;
 }
 
-function normalizeRoundDraft(game, draft) {
+function normalizeRoundDraft(game, draft, roundKey = getRoundDraftKey()) {
+  const players = getRoundPlayers(game, roundKey);
   const nextScores = {};
-  for (const player of game.players) {
+  for (const player of players) {
     const currentValue = draft?.roundScores?.[player.id];
     nextScores[player.id] =
       currentValue === "" || currentValue === null || currentValue === undefined ? "" : String(currentValue);
@@ -1039,7 +1133,7 @@ function cacheRoundDraft(game, roundKey = state.draft.currentRoundKey) {
   const draft = normalizeRoundDraft(game, {
     roundNote: state.draft.roundNote,
     roundScores: state.draft.roundScores
-  });
+  }, key);
   state.draft.roundDrafts[key] = draft;
   return draft;
 }
@@ -1049,7 +1143,7 @@ function resetLiveRoundDraft(game) {
     return;
   }
 
-  const blankDraft = createBlankRoundDraft(game);
+  const blankDraft = createBlankRoundDraft(game, "new");
   state.draft.liveRoundVersion += 1;
   state.draft.currentRoundKey = "new";
   state.draft.roundNote = blankDraft.roundNote;
@@ -1075,8 +1169,8 @@ function loadRoundDraft(game, roundKey = "new") {
   const round = key === "new" ? null : game.rounds.find((entry) => entry.id === key) || null;
   const draft =
     state.draft.roundDrafts[key] ||
-    (round ? createRoundDraftFromRound(game, round) : createBlankRoundDraft(game));
-  const normalized = normalizeRoundDraft(game, draft);
+    (round ? createRoundDraftFromRound(game, round) : createBlankRoundDraft(game, key));
+  const normalized = normalizeRoundDraft(game, draft, key);
 
   state.draft.currentRoundKey = key;
   state.draft.roundNote = normalized.roundNote;
@@ -1116,7 +1210,7 @@ function isRoundDraftLive() {
 }
 
 function getRoundDraftPayload(game) {
-  const scores = game.players.map((player) => ({
+  const scores = getRoundPlayers(game).map((player) => ({
     playerId: player.id,
     points: Number(state.draft.roundScores[player.id] || 0)
   }));
@@ -1179,9 +1273,10 @@ function isRoundDraftChanged(game) {
 
   const selectedRound = getSelectedRound(game);
   const currentNote = state.draft.roundNote.trim();
+  const players = getRoundPlayers(game);
 
   if (!selectedRound) {
-    return currentNote.length > 0 || game.players.some((player) => state.draft.roundScores[player.id] !== "");
+    return currentNote.length > 0 || players.some((player) => state.draft.roundScores[player.id] !== "");
   }
 
   const baseline = new Map(selectedRound.scores.map((score) => [score.playerId, score.points]));
@@ -1189,7 +1284,7 @@ function isRoundDraftChanged(game) {
     return true;
   }
 
-  return game.players.some((player) => {
+  return players.some((player) => {
     const currentValue = state.draft.roundScores[player.id];
     const normalizedCurrent =
       currentValue === "" || currentValue === null || currentValue === undefined ? 0 : Number(currentValue);
@@ -1483,6 +1578,16 @@ function closeConfirmModal() {
   render();
 }
 
+function openArchiveConfirmModal() {
+  state.confirmArchiveOpen = true;
+  render();
+}
+
+function closeArchiveConfirmModal() {
+  state.confirmArchiveOpen = false;
+  render();
+}
+
 function findGameById(gameId) {
   if (state.data.currentGame?.id === gameId) {
     return state.data.currentGame;
@@ -1509,6 +1614,10 @@ function renderShellText() {
   elements.roundConfirmMessage.textContent = t("current.askContinue");
   elements.roundConfirmContinue.textContent = t("current.continueNextRound");
   elements.roundConfirmCancel.textContent = t("common.cancel");
+  elements.archiveConfirmTitle.textContent = t("archiveConfirm.title");
+  elements.archiveConfirmMessage.textContent = t("archiveConfirm.message");
+  elements.archiveConfirmContinue.textContent = t("archiveConfirm.confirm");
+  elements.archiveConfirmCancel.textContent = t("common.cancel");
 
   const drawerLinks = elements.drawer.querySelectorAll("[data-route]");
   drawerLinks.forEach((button) => {
@@ -1542,6 +1651,7 @@ function renderHomeScreen() {
               .map((game) => {
                 const modeLabel = game.gameMode ? gameModeLabel(game.gameMode) : "";
                 const canDelete = !(currentGame && currentGame.id === game.id);
+                const playerCount = getActivePlayerCount(game);
                 return `
                   <div
                     class="home-history-item-shell"
@@ -1558,9 +1668,9 @@ function renderHomeScreen() {
                       data-home-current="${String(!canDelete)}"
                     >
                       <div class="home-history-copy">
-                        <strong class="home-history-title">${escapeHtml(game.title)}</strong>
+                        <strong class="home-history-title" title="${escapeHtml(game.title)}">${escapeHtml(game.title)}</strong>
                         <div class="home-history-meta">
-                          <span>${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</span>
+                          <span>${escapeHtml(t("existing.playersLabel", { count: playerCount }))}</span>
                           ${modeLabel ? `<span>${escapeHtml(modeLabel)}</span>` : ""}
                         </div>
                       </div>
@@ -1615,10 +1725,10 @@ function renderHomeScreen() {
         <div class="game-card game-card-active">
           <div class="game-card-header">
             <div class="game-card-title">
-              <strong>${escapeHtml(currentGame.title)}</strong>
+              <strong title="${escapeHtml(currentGame.title)}">${escapeHtml(currentGame.title)}</strong>
               <span class="game-card-meta">
                 <span class="pill">${escapeHtml(gameModeLabel(currentGame.gameMode))}</span>
-                <span>${escapeHtml(t("existing.playersLabel", { count: currentGame.players.length }))}</span>
+                <span>${escapeHtml(t("existing.playersLabel", { count: getActivePlayerCount(currentGame) }))}</span>
                 <span>${escapeHtml(t("existing.roundsLabel", { count: currentGame.rounds.length }))}</span>
               </span>
             </div>
@@ -1767,6 +1877,7 @@ function renderGameCard(game, { current = false } = {}) {
   const menuAction = current ? "archive" : "delete";
   const menuLabel = current ? t("existing.archiveCard") : t("existing.deleteCard");
   const cardAction = current ? "go-current-game" : "resume-game";
+  const playerCount = getActivePlayerCount(game);
 
   if (!current) {
     return `
@@ -1783,10 +1894,10 @@ function renderGameCard(game, { current = false } = {}) {
           data-game-id="${escapeHtml(game.id)}"
         >
           <div class="home-history-copy game-list-copy">
-            <strong class="home-history-title">${escapeHtml(game.title)}</strong>
+            <strong class="home-history-title" title="${escapeHtml(game.title)}">${escapeHtml(game.title)}</strong>
             <div class="home-history-meta">
               <span class="pill">${escapeHtml(gameModeLabel(game.gameMode))}</span>
-              <span>${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</span>
+              <span>${escapeHtml(t("existing.playersLabel", { count: playerCount }))}</span>
               <span>${escapeHtml(t("existing.roundsLabel", { count: game.rounds.length }))}</span>
             </div>
             <div class="home-history-meta game-list-submeta">
@@ -1797,9 +1908,9 @@ function renderGameCard(game, { current = false } = {}) {
               <span class="pill ${statusPillClass}">${escapeHtml(status)}</span>
               ${
                 headline
-                  ? `<span class="game-card-leader">${escapeHtml(headlineLabel)}: ${escapeHtml(headline.name)} ${formatNumber(
-                      headline.total
-                    )} ${escapeHtml(t("common.points"))}</span>`
+                  ? `<span class="game-card-leader" title="${escapeHtml(`${headlineLabel}: ${headline.name}`)}">${escapeHtml(
+                      headlineLabel
+                    )}: ${escapeHtml(headline.name)} ${formatNumber(headline.total)} ${escapeHtml(t("common.points"))}</span>`
                   : ""
               }
             </div>
@@ -1824,14 +1935,14 @@ function renderGameCard(game, { current = false } = {}) {
   return `
     <article class="game-card ${current ? "game-card-active" : ""}" data-game-card="${escapeHtml(game.id)}">
       <div class="game-card-header">
-        <div class="game-card-title">
-          <strong>${escapeHtml(game.title)}</strong>
-          <div class="game-card-meta">
-            <span class="pill">${escapeHtml(gameModeLabel(game.gameMode))}</span>
-            <span>${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</span>
-            <span>${escapeHtml(t("existing.roundsLabel", { count: game.rounds.length }))}</span>
+          <div class="game-card-title">
+            <strong>${escapeHtml(game.title)}</strong>
+            <div class="game-card-meta">
+              <span class="pill">${escapeHtml(gameModeLabel(game.gameMode))}</span>
+              <span>${escapeHtml(t("existing.playersLabel", { count: playerCount }))}</span>
+              <span>${escapeHtml(t("existing.roundsLabel", { count: game.rounds.length }))}</span>
+            </div>
           </div>
-        </div>
         <button
           class="menu-trigger"
           type="button"
@@ -1936,9 +2047,13 @@ function renderCurrentGameScreen() {
   const progress = getGameProgress(game);
   const winner = progress.winner;
   const roundNavigator = getRoundNavigatorState(game);
+  const activePlayers = getActiveGamePlayers(game);
+  const inactivePlayers = game.players.filter((player) => !player.isActive);
   const orderedPlayers = getCurrentGamePlayers(game);
   const canEditScores = isRoundDraftEditable(game);
   const canEditNote = Boolean(canEditScores || game.isFinished);
+  const canManagePlayers = Boolean(roundNavigator.isLive && !game.isFinished);
+  const activePlayerCount = activePlayers.length;
   const currentRoundKey = getRoundDraftKey();
   const invalidRoundIds = new Set(progress.invalidRoundIds);
   const selectedRound = getSelectedRound(game);
@@ -1967,13 +2082,15 @@ function renderCurrentGameScreen() {
     progress.winningRoundId || "none",
     progress.winningRoundNumber || 0,
     game.rounds.length,
-    game.updatedAt
+    game.updatedAt,
+    canManagePlayers ? "roster-live" : "roster-locked",
+    game.players.map((player) => `${player.id}:${player.isActive ? "1" : "0"}:${player.name}`).join("|")
   ].join("::");
   const headerKey = [
     game.id,
     game.title,
     game.winningScore,
-    game.players.length,
+    activePlayerCount,
     roundNavigator.label,
     roundNavigator.status,
     winner?.name || "",
@@ -2068,9 +2185,17 @@ function renderCurrentGameScreen() {
       <h1 class="screen-title">${escapeHtml(game.title)}</h1>
       <div class="current-meta-line">
         <span>${escapeHtml(t("current.winningScore"))} ${formatNumber(game.winningScore)}</span>
-        <span>${escapeHtml(`${game.players.length} ${pluralLabel(game.players.length, t("common.player"), t("common.players"))}`)}</span>
+        <span>${escapeHtml(
+          `${activePlayerCount} ${pluralLabel(activePlayerCount, t("common.player"), t("common.players"))}`
+        )}</span>
       </div>
-      ${winner ? `<div class="current-winner-line"><span>${escapeHtml(t("current.winnerLabel"))}:</span><strong>${escapeHtml(winner.name)}</strong></div>` : ""}
+      ${
+        winner
+          ? `<div class="current-winner-line"><span>${escapeHtml(t("current.winnerLabel"))}:</span><strong title="${escapeHtml(
+              winner.name
+            )}">${escapeHtml(winner.name)}</strong></div>`
+          : ""
+      }
       <div class="current-round-nav" role="group" aria-label="${escapeHtml(t("current.roundNavigation"))}">
         <button
           class="round-nav-button"
@@ -2144,7 +2269,7 @@ function renderCurrentGameScreen() {
               return `
                 <div class="score-row">
                   <label class="field">
-                    <span class="player-name">${escapeHtml(player.name)}</span>
+                    <span class="player-name" title="${escapeHtml(player.name)}">${escapeHtml(player.name)}</span>
                     <span class="muted">${formatNumber(total)} ${escapeHtml(t("common.points"))}</span>
                   </label>
                   <input
@@ -2209,8 +2334,103 @@ function renderCurrentGameScreen() {
         <span>${formatNumber(winner.total)} ${escapeHtml(t("common.points"))}</span>
         <span class="muted">${escapeHtml(t("current.finishedLead"))}</span>
       </div>
-    `
+      `
       : "";
+
+  const rosterHtml = () => {
+    if (!canManagePlayers) {
+      return "";
+    }
+
+    const removeDisabled = activePlayers.length <= 2;
+
+    return `
+      <div class="stack-tight current-roster-section">
+        <strong>${escapeHtml(t("current.managePlayers"))}</strong>
+        <div class="inline-row current-roster-add">
+          <input
+            id="current-player-input"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            enterkeyhint="next"
+            placeholder="${escapeHtml(t("current.playerPlaceholder"))}"
+            value="${escapeHtml(state.draft.currentGamePlayerInput)}"
+          />
+          <button class="secondary-action" type="button" data-action="add-current-player">${escapeHtml(
+            t("current.addPlayer")
+          )}</button>
+        </div>
+        <p class="helper">${escapeHtml(t("current.appliesFutureRounds"))}</p>
+        <div class="stack-tight">
+          <strong class="subsection-title">${escapeHtml(t("current.activePlayers"))}</strong>
+          ${
+            activePlayers.length
+              ? `<div class="current-roster-list">
+                  ${activePlayers
+                    .map(
+                      (player) => `
+                        <div class="current-roster-item">
+                          <div class="current-roster-copy">
+                            <strong class="current-roster-name" title="${escapeHtml(player.name)}">${escapeHtml(
+                              player.name
+                            )}</strong>
+                          </div>
+                          <button
+                            class="chip-remove current-roster-remove"
+                            type="button"
+                            data-action="remove-current-player"
+                            data-player-id="${escapeHtml(player.id)}"
+                            aria-label="${escapeHtml(`${t("current.removePlayer")} ${player.name}`)}"
+                            ${removeDisabled ? "disabled" : ""}
+                          >
+                            −
+                          </button>
+                        </div>
+                      `
+                    )
+                    .join("")}
+                </div>
+                ${removeDisabled ? `<p class="helper plain-copy">${escapeHtml(t("current.minimumPlayers"))}</p>` : ""}`
+              : `<p class="helper plain-copy">${escapeHtml(t("current.noActivePlayers"))}</p>`
+          }
+        </div>
+        ${
+          inactivePlayers.length
+            ? `
+              <div class="stack-tight">
+                <strong class="subsection-title">${escapeHtml(t("current.inactivePlayers"))}</strong>
+                <div class="current-roster-list">
+                  ${inactivePlayers
+                    .map(
+                      (player) => `
+                        <div class="current-roster-item is-inactive">
+                          <div class="current-roster-copy">
+                            <strong class="current-roster-name" title="${escapeHtml(player.name)}">${escapeHtml(
+                              player.name
+                            )}</strong>
+                          </div>
+                          <button
+                            class="current-roster-restore"
+                            type="button"
+                            data-action="restore-current-player"
+                            data-player-name="${escapeHtml(player.name)}"
+                            aria-label="${escapeHtml(`${t("current.activatePlayer")} ${player.name}`)}"
+                          >
+                            ${escapeHtml(t("current.activatePlayer"))}
+                          </button>
+                        </div>
+                      `
+                    )
+                    .join("")}
+                </div>
+              </div>
+            `
+            : `<p class="helper plain-copy">${escapeHtml(t("current.noInactivePlayers"))}</p>`
+        }
+      </div>
+    `;
+  };
 
   const detailsHtml = () => `
     <details class="current-details">
@@ -2221,6 +2441,7 @@ function renderCurrentGameScreen() {
       <div class="stack current-details-body">
         ${statusBannerHtml()}
         ${winnerBannerHtml()}
+        ${rosterHtml()}
         ${noteHtml()}
         ${renderRoundHistory()}
       </div>
@@ -2405,7 +2626,7 @@ function renderStatsScreen() {
           ? `
             <div class="state-banner">
               <p class="eyebrow">${escapeHtml(t("stats.winner"))}</p>
-              <strong>${escapeHtml(stats.winner.name)}</strong>
+              <strong title="${escapeHtml(stats.winner.name)}">${escapeHtml(stats.winner.name)}</strong>
               <span>${formatNumber(stats.winner.total)} ${escapeHtml(t("common.players"))}</span>
             </div>
           `
@@ -2422,7 +2643,7 @@ function renderStatsScreen() {
                     (entry) => `
                       <div class="summary-block">
                         <div class="game-card-header">
-                          <strong>${escapeHtml(entry.name)}</strong>
+                          <strong title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</strong>
                           <span>${formatNumber(entry.total)}</span>
                         </div>
                       </div>
@@ -2483,14 +2704,6 @@ function renderSettingsScreen() {
             min="1"
             step="1"
             value="${escapeHtml(state.settings.defaultWinningScore)}"
-          />
-        </label>
-        <label class="toggle-row">
-          <span>${escapeHtml(t("settings.askBeforeNextRound"))}</span>
-          <input
-            id="settings-confirm-next-round"
-            type="checkbox"
-            ${state.settings.confirmBeforeNextRound ? "checked" : ""}
           />
         </label>
         <label class="field">
@@ -2574,9 +2787,18 @@ function renderConfirmModal() {
   elements.roundConfirmMessage.textContent = t("current.askContinue");
 }
 
+function renderArchiveConfirmModal() {
+  elements.archiveConfirmModal.classList.toggle("hidden", !state.confirmArchiveOpen);
+  elements.archiveConfirmModal.setAttribute("aria-hidden", String(!state.confirmArchiveOpen));
+  elements.archiveConfirmMessage.textContent = t("archiveConfirm.message");
+}
+
 function renderDrawer() {
   elements.drawer.classList.toggle("hidden", !state.drawerOpen);
-  elements.appBackdrop.classList.toggle("hidden", !(state.drawerOpen || state.menu || state.confirmNextRoundOpen));
+  elements.appBackdrop.classList.toggle(
+    "hidden",
+    !(state.drawerOpen || state.menu || state.confirmNextRoundOpen || state.confirmArchiveOpen)
+  );
   elements.menuButton.setAttribute("aria-expanded", String(state.drawerOpen));
 }
 
@@ -2586,6 +2808,7 @@ function renderChrome() {
   renderDrawer();
   renderMenu();
   renderConfirmModal();
+  renderArchiveConfirmModal();
 }
 
 function render() {
@@ -2616,11 +2839,22 @@ function render() {
     screen.classList.toggle("hidden", state.route !== route);
   });
 
+  const focusTarget = state.draft.currentGameFocusTarget;
+  state.draft.currentGameFocusTarget = null;
   requestAnimationFrame(() => {
     if (state.route === "new-game") {
       document.querySelector("#new-player-input")?.focus();
-    } else if (state.route === "current-game" && isRoundDraftEditable(state.data.currentGame)) {
-      focusCurrentScoreInput();
+    } else if (
+      state.route === "current-game" &&
+      isRoundDraftEditable(state.data.currentGame) &&
+      !state.confirmNextRoundOpen &&
+      !state.confirmArchiveOpen
+    ) {
+      if (focusTarget === "player") {
+        focusCurrentPlayerInput();
+      } else {
+        focusCurrentScoreInput();
+      }
     } else if (state.route === "settings") {
       document.querySelector("#settings-winning-score")?.focus();
     }
@@ -2799,6 +3033,7 @@ function showCelebration(winner) {
 
   if (elements.celebrationName) {
     elements.celebrationName.textContent = winner.name;
+    elements.celebrationName.title = winner.name;
   }
 
   startCelebrationFireworks();
@@ -2861,6 +3096,7 @@ async function startGame() {
         roundScores: {}
       }
     };
+    state.draft.currentGamePlayerInput = "";
     ensureRoundDraft(state.data.currentGame);
     state.route = "current-game";
     window.location.hash = "current-game";
@@ -2915,6 +3151,7 @@ async function playAgain() {
     state.draft.roundNote = "";
     state.draft.roundScores = {};
     state.draft.currentGameOrder = "entered";
+    state.draft.currentGamePlayerInput = "";
     state.draft.currentRoundKey = "new";
     state.draft.roundDrafts = {
       new: {
@@ -3007,6 +3244,160 @@ function focusCurrentScoreInput(target = null) {
     input.focus({ preventScroll: true });
     input.select();
   });
+}
+
+function focusCurrentPlayerInput(target = null) {
+  const input =
+    target instanceof HTMLInputElement ? target : document.querySelector("#current-player-input");
+
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    input.focus({ preventScroll: true });
+    input.select();
+  });
+}
+
+async function addCurrentGamePlayer(nameInput = state.draft.currentGamePlayerInput) {
+  const game = state.data.currentGame;
+  if (!game || game.isFinished) {
+    return;
+  }
+
+  const name = String(nameInput ?? "").trim();
+  if (!name) {
+    return;
+  }
+
+  const duplicate = game.players.some(
+    (player) => player.isActive && player.name.toLowerCase() === name.toLowerCase()
+  );
+  if (duplicate) {
+    showToast(t("newGame.duplicatePlayer"), true);
+    return;
+  }
+
+  const snapshot = snapshotAppState();
+
+  try {
+    cacheRoundDraft(game);
+
+    const timestamp = now();
+    const players = [...game.players];
+    const existingInactiveIndex = players.findIndex(
+      (player) => !player.isActive && player.name.toLowerCase() === name.toLowerCase()
+    );
+    const restoringExistingPlayer = existingInactiveIndex >= 0;
+
+    if (existingInactiveIndex >= 0) {
+      players[existingInactiveIndex] = {
+        ...players[existingInactiveIndex],
+        isActive: true,
+        removedAt: null,
+        joinedAt: players[existingInactiveIndex].joinedAt || timestamp
+      };
+    } else {
+      players.push({
+        id: crypto.randomUUID(),
+        name,
+        isActive: true,
+        joinedAt: timestamp,
+        removedAt: null
+      });
+    }
+
+    const optimisticGame = {
+      ...game,
+      updatedAt: timestamp,
+      players
+    };
+
+    state.data.currentGame = optimisticGame;
+    state.draft.currentGamePlayerInput = "";
+    loadRoundDraft(optimisticGame, getRoundDraftKey());
+    state.draft.currentGameFocusTarget = "player";
+    render();
+
+    const payload = await api("/api/players", {
+      method: "POST",
+      body: JSON.stringify({ name })
+    });
+
+    if (payload.game) {
+      state.data.currentGame = payload.game;
+      ensureRoundDraft(state.data.currentGame);
+    }
+
+    showToast(t(restoringExistingPlayer ? "toast.playerRestored" : "toast.playerAdded"));
+    state.draft.currentGameFocusTarget = "player";
+    render();
+  } catch (error) {
+    restoreAppState(snapshot);
+    showToast(error.message, true);
+    render();
+  }
+}
+
+async function removeCurrentGamePlayer(playerId) {
+  const game = state.data.currentGame;
+  if (!game || game.isFinished) {
+    return;
+  }
+
+  const targetPlayer = game.players.find((player) => player.id === playerId && player.isActive);
+  if (!targetPlayer) {
+    return;
+  }
+
+  if (getActivePlayerCount(game) <= 2) {
+    showToast(t("current.minimumPlayers"), true);
+    return;
+  }
+
+  const snapshot = snapshotAppState();
+
+  try {
+    cacheRoundDraft(game);
+
+    const timestamp = now();
+    const optimisticGame = {
+      ...game,
+      updatedAt: timestamp,
+      players: game.players.map((player) =>
+        player.id === playerId
+          ? {
+              ...player,
+              isActive: false,
+              removedAt: timestamp
+            }
+          : player
+      )
+    };
+
+    state.data.currentGame = optimisticGame;
+    loadRoundDraft(optimisticGame, getRoundDraftKey());
+    state.draft.currentGameFocusTarget = "player";
+    render();
+
+    const payload = await api(`/api/players/${encodeURIComponent(playerId)}`, {
+      method: "DELETE"
+    });
+
+    if (payload.game) {
+      state.data.currentGame = payload.game;
+      ensureRoundDraft(state.data.currentGame);
+    }
+
+    showToast(t("toast.playerRemoved"));
+    state.draft.currentGameFocusTarget = "player";
+    render();
+  } catch (error) {
+    restoreAppState(snapshot);
+    showToast(error.message, true);
+    render();
+  }
 }
 
 function clearHomeSwipeState() {
@@ -3123,12 +3514,10 @@ async function endHomeSwipe(event) {
 
 function updateSettingsFromControls(shouldRender = true) {
   const winningScore = Number(document.querySelector("#settings-winning-score")?.value || 200);
-  const confirmBeforeNextRound = Boolean(document.querySelector("#settings-confirm-next-round")?.checked);
   const theme = document.querySelector("#settings-theme")?.value || DEFAULT_SETTINGS.theme;
   const language = document.querySelector("#settings-language")?.value || DEFAULT_SETTINGS.language;
 
   state.settings.defaultWinningScore = Number.isFinite(winningScore) && winningScore > 0 ? winningScore : 200;
-  state.settings.confirmBeforeNextRound = confirmBeforeNextRound;
   state.settings.theme = theme === "light" || theme === "dark" || theme === "system" ? theme : "system";
   state.settings.language = language === "sv" ? "sv" : "en";
   saveSettings();
@@ -3162,6 +3551,7 @@ async function resumeGame(gameId) {
       state.data.currentGame
     );
     state.data.currentGame = gameToResume;
+    state.draft.currentGamePlayerInput = "";
     ensureRoundDraft(state.data.currentGame);
     state.route = "current-game";
     window.location.hash = "current-game";
@@ -3183,14 +3573,23 @@ async function resumeGame(gameId) {
   }
 }
 
-async function archiveCurrentGame() {
+async function archiveCurrentGame({ force = false } = {}) {
+  const currentGame = state.data.currentGame;
+  if (!currentGame) {
+    return;
+  }
+
+  if (!force && !currentGame.isFinished) {
+    openArchiveConfirmModal();
+    return;
+  }
+
   clearFinishedRoundNoteAutosave();
   const snapshot = snapshotAppState();
 
   try {
-    const currentGame = state.data.currentGame;
-
     state.menu = null;
+    state.confirmArchiveOpen = false;
     state.data.history = appendCurrentGameToHistory(state.data.history, currentGame);
     state.data.currentGame = null;
     ensureRoundDraft(state.data.currentGame);
@@ -3255,6 +3654,7 @@ function wireGlobalEvents() {
     state.drawerOpen = false;
     state.menu = null;
     state.confirmNextRoundOpen = false;
+    state.confirmArchiveOpen = false;
     render();
   });
 
@@ -3274,6 +3674,27 @@ function wireGlobalEvents() {
 
   elements.roundConfirmCancel.addEventListener("click", () => {
     closeConfirmModal();
+  });
+
+  elements.roundConfirmModal.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
+      closeConfirmModal();
+    }
+  });
+
+  elements.archiveConfirmContinue.addEventListener("click", async () => {
+    closeArchiveConfirmModal();
+    await archiveCurrentGame({ force: true });
+  });
+
+  elements.archiveConfirmCancel.addEventListener("click", () => {
+    closeArchiveConfirmModal();
+  });
+
+  elements.archiveConfirmModal.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
+      closeArchiveConfirmModal();
+    }
   });
 
   elements.toast.addEventListener("pointerdown", hideToast);
@@ -3338,6 +3759,8 @@ function wireGlobalEvents() {
       state.draft.newGame.gameMode = target.value === "vengeance" || target.value === "mixed" ? target.value : "classic";
     } else if (target.id === "new-game-winning-score") {
       state.draft.newGame.winningScore = target.value;
+    } else if (target.id === "current-player-input") {
+      state.draft.currentGamePlayerInput = target.value;
     } else if (target.matches('#current-game-form input[data-player-id]')) {
       const playerId = target.dataset.playerId;
       if (playerId) {
@@ -3354,7 +3777,7 @@ function wireGlobalEvents() {
           queueFinishedRoundNoteSave();
         }
       }
-    } else if (target.id === "settings-winning-score" || target.id === "settings-confirm-next-round" || target.id === "settings-theme" || target.id === "settings-language") {
+    } else if (target.id === "settings-winning-score" || target.id === "settings-theme" || target.id === "settings-language") {
       updateSettingsFromControls(false);
     }
   });
@@ -3380,7 +3803,7 @@ function wireGlobalEvents() {
       return;
     }
 
-    if (target.id === "settings-winning-score" || target.id === "settings-confirm-next-round" || target.id === "settings-theme" || target.id === "settings-language") {
+    if (target.id === "settings-winning-score" || target.id === "settings-theme" || target.id === "settings-language") {
       updateSettingsFromControls();
     }
   });
@@ -3397,11 +3820,27 @@ function wireGlobalEvents() {
   });
 
   document.addEventListener("keydown", async (event) => {
+    if (event.key === "Escape" && (state.confirmNextRoundOpen || state.confirmArchiveOpen)) {
+      closeConfirmModal();
+      closeArchiveConfirmModal();
+      return;
+    }
+
     const target = event.target;
 
     if (target instanceof HTMLInputElement && target.id === "new-player-input" && (event.key === "Enter" || event.key === "Tab")) {
       event.preventDefault();
       addDraftPlayer();
+      return;
+    }
+
+    if (
+      target instanceof HTMLInputElement &&
+      target.id === "current-player-input" &&
+      (event.key === "Enter" || event.key === "Tab")
+    ) {
+      event.preventDefault();
+      await addCurrentGamePlayer();
       return;
     }
 
@@ -3491,6 +3930,12 @@ function wireGlobalEvents() {
         addDraftPlayer();
       } else if (action === "remove-player") {
         removeDraftPlayer(playerIndex);
+      } else if (action === "add-current-player") {
+        await addCurrentGamePlayer();
+      } else if (action === "restore-current-player" && actionTarget.dataset.playerName) {
+        await addCurrentGamePlayer(actionTarget.dataset.playerName);
+      } else if (action === "remove-current-player" && actionTarget.dataset.playerId) {
+        await removeCurrentGamePlayer(actionTarget.dataset.playerId);
       } else if (action === "set-current-order" && actionTarget.dataset.order) {
         state.draft.currentGameOrder = actionTarget.dataset.order === "leader" ? "leader" : "entered";
         render();

@@ -9,7 +9,7 @@ const defaultDatabase = (): Database => ({
 const defaultWinningScore = 200;
 const defaultGameMode: GameMode = "classic";
 
-const normalizePlayer = (value: unknown): Player | null => {
+const normalizePlayer = (value: unknown, fallbackJoinedAt = ""): Player | null => {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -20,9 +20,21 @@ const normalizePlayer = (value: unknown): Player | null => {
     return null;
   }
 
+  const joinedAt =
+    typeof candidate.joinedAt === "string" && candidate.joinedAt.trim().length > 0
+      ? candidate.joinedAt
+      : fallbackJoinedAt;
+  const removedAt =
+    typeof candidate.removedAt === "string" && candidate.removedAt.trim().length > 0
+      ? candidate.removedAt
+      : null;
+
   return {
     id: candidate.id,
-    name: candidate.name
+    name: candidate.name,
+    isActive: typeof candidate.isActive === "boolean" ? candidate.isActive : removedAt === null,
+    joinedAt,
+    removedAt
   };
 };
 
@@ -74,8 +86,11 @@ const normalizeGame = (value: unknown): Game | null => {
   }
 
   const candidate = value as Partial<Game>;
+  const fallbackJoinedAt = typeof candidate.createdAt === "string" ? candidate.createdAt : "";
   const players = Array.isArray(candidate.players)
-    ? candidate.players.map(normalizePlayer).filter((player): player is Player => player !== null)
+    ? candidate.players
+        .map((player) => normalizePlayer(player, fallbackJoinedAt))
+        .filter((player): player is Player => player !== null)
     : [];
   const rounds = Array.isArray(candidate.rounds)
     ? candidate.rounds.map(normalizeRound).filter((round): round is Round => round !== null)
@@ -248,6 +263,29 @@ const buildScoreboard = (players: Player[], totals: Record<string, number>): Sco
     }))
     .sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
 
+const isPlayerActiveAt = (player: Player, timestamp: string): boolean => {
+  if (!player.isActive) {
+    return false;
+  }
+
+  const targetTime = Date.parse(timestamp);
+  if (!Number.isFinite(targetTime)) {
+    return true;
+  }
+
+  const joinedAt = Date.parse(player.joinedAt);
+  if (Number.isFinite(joinedAt) && targetTime < joinedAt) {
+    return false;
+  }
+
+  const removedAt = player.removedAt ? Date.parse(player.removedAt) : NaN;
+  if (Number.isFinite(removedAt) && targetTime >= removedAt) {
+    return false;
+  }
+
+  return true;
+};
+
 export const getGameProgress = (game: Game): GameProgress => {
   const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
   let winner: WinnerSummary | null = null;
@@ -257,8 +295,15 @@ export const getGameProgress = (game: Game): GameProgress => {
 
   for (let index = 0; index < game.rounds.length; index += 1) {
     const round = game.rounds[index];
+    const activePlayerIds = new Set(
+      game.players.filter((player) => isPlayerActiveAt(player, round.createdAt)).map((player) => player.id)
+    );
 
     for (const score of round.scores) {
+      if (!activePlayerIds.has(score.playerId)) {
+        continue;
+      }
+
       totals[score.playerId] = (totals[score.playerId] ?? 0) + score.points;
     }
 

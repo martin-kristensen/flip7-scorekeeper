@@ -1,6 +1,9 @@
 export interface Player {
   id: string;
   name: string;
+  isActive: boolean;
+  joinedAt: string;
+  removedAt: string | null;
 }
 
 export type GameMode = "classic" | "vengeance" | "mixed";

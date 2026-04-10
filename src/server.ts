@@ -78,6 +78,38 @@ const normalizeWinningScore = (value: unknown, fallback = 200) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
+const createPlayerRecord = (name: string, timestamp = now()): Player => ({
+  id: createId(),
+  name,
+  isActive: true,
+  joinedAt: timestamp,
+  removedAt: null
+});
+const isPlayerActiveAt = (player: Player, timestamp: string) => {
+  if (!player.isActive) {
+    return false;
+  }
+
+  const targetTime = Date.parse(timestamp);
+  if (!Number.isFinite(targetTime)) {
+    return true;
+  }
+
+  const joinedAt = Date.parse(player.joinedAt);
+  if (Number.isFinite(joinedAt) && targetTime < joinedAt) {
+    return false;
+  }
+
+  const removedAt = player.removedAt ? Date.parse(player.removedAt) : NaN;
+  if (Number.isFinite(removedAt) && targetTime >= removedAt) {
+    return false;
+  }
+
+  return true;
+};
+const getActivePlayers = (game: Game) => game.players.filter((player) => player.isActive);
+const getPlayersActiveAt = (game: Game, timestamp: string) =>
+  game.players.filter((player) => isPlayerActiveAt(player, timestamp));
 
 const readDatabase = (request: express.Request) => store.read(getSessionId(request));
 
@@ -91,18 +123,14 @@ const createGame = (
   playerNames: string[],
   options?: { gameMode?: unknown; winningScore?: unknown }
 ): Game => {
-  const players: Player[] = Array.from(
-    new Set(playerNames.map((name) => name.trim()).filter(Boolean))
-  ).map((name) => ({
-    id: createId(),
-    name
-  }));
+  const timestamp = now();
+  const players: Player[] = Array.from(new Set(playerNames.map((name) => name.trim()).filter(Boolean))).map(
+    (name) => createPlayerRecord(name, timestamp)
+  );
 
   if (players.length < 2) {
     throw new Error("Add at least two players to start a game.");
   }
-
-  const timestamp = now();
 
   return {
     id: createId(),
@@ -120,14 +148,14 @@ const createGame = (
 const archiveCurrentGame = (gameHistory: Game[], currentGame: Game | null) =>
   currentGame ? [currentGame, ...gameHistory] : gameHistory;
 
-const validateRoundScores = (currentGame: Game, incomingScores: unknown[]) => {
-  const validPlayers = new Set(currentGame.players.map((player) => player.id));
+const validateRoundScores = (players: Player[], incomingScores: unknown[]) => {
+  const validPlayers = new Set(players.map((player) => player.id));
   const scores: RoundScore[] = incomingScores.map((score) => ({
     playerId: String((score as { playerId?: unknown }).playerId),
     points: Number((score as { points?: unknown }).points ?? 0)
   }));
 
-  if (scores.length !== currentGame.players.length) {
+  if (scores.length !== players.length) {
     throw new Error("Each player needs a score for the round.");
   }
 
@@ -142,7 +170,7 @@ const validateRoundScores = (currentGame: Game, incomingScores: unknown[]) => {
   }
 
   const seenPlayers = new Set(scores.map((score) => score.playerId));
-  if (seenPlayers.size !== currentGame.players.length) {
+  if (seenPlayers.size !== players.length) {
     throw new Error("Each player should appear only once per round.");
   }
 
@@ -224,17 +252,35 @@ app.post("/api/players", async (request, response) => {
     }
 
     const duplicate = current.currentGame.players.some(
-      (player) => player.name.toLowerCase() === name.toLowerCase()
+      (player) => player.isActive && player.name.toLowerCase() === name.toLowerCase()
     );
 
     if (duplicate) {
       throw new Error("That player already exists.");
     }
 
+    const timestamp = now();
+    const players = [...current.currentGame.players];
+    const existingInactiveIndex = players.findIndex(
+      (player) => !player.isActive && player.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (existingInactiveIndex >= 0) {
+      const player = players[existingInactiveIndex];
+      players[existingInactiveIndex] = {
+        ...player,
+        isActive: true,
+        removedAt: null,
+        joinedAt: player.joinedAt || timestamp
+      };
+    } else {
+      players.push(createPlayerRecord(name, timestamp));
+    }
+
     const updatedGame: Game = {
       ...current.currentGame,
-      updatedAt: now(),
-      players: [...current.currentGame.players, { id: createId(), name }]
+      updatedAt: timestamp,
+      players
     };
 
     return { ...current, currentGame: updatedGame };
@@ -258,24 +304,32 @@ app.delete("/api/players/:id", async (request, response) => {
       throw new Error("Start a game before removing players.");
     }
 
-    const players = current.currentGame.players.filter((player) => player.id !== playerId);
+    const player = current.currentGame.players.find((entry) => entry.id === playerId);
 
-    if (players.length === current.currentGame.players.length) {
+    if (!player || !player.isActive) {
       throw new Error("Player not found.");
     }
 
-    if (players.length < 2) {
+    const activePlayers = current.currentGame.players.filter(
+      (entry) => entry.isActive && entry.id !== playerId
+    );
+
+    if (activePlayers.length < 2) {
       throw new Error("A game needs at least two players.");
     }
 
     const updatedGame: Game = {
       ...current.currentGame,
       updatedAt: now(),
-      players,
-      rounds: current.currentGame.rounds.map((round) => ({
-        ...round,
-        scores: round.scores.filter((score) => score.playerId !== playerId)
-      }))
+      players: current.currentGame.players.map((entry) =>
+        entry.id === playerId
+          ? {
+              ...entry,
+              isActive: false,
+              removedAt: now()
+            }
+          : entry
+      )
     };
 
     return { ...current, currentGame: updatedGame };
@@ -299,9 +353,14 @@ app.post("/api/game/restart", async (request, response) => {
       throw new Error("There is no current game to restart.");
     }
 
+    const activePlayers = getActivePlayers(current.currentGame);
+    if (activePlayers.length < 2) {
+      throw new Error("A game needs at least two players.");
+    }
+
     const nextGame = createGame(
       title || current.currentGame.title,
-      current.currentGame.players.map((player) => player.name),
+      activePlayers.map((player) => player.name),
       {
         gameMode: current.currentGame.gameMode,
         winningScore: current.currentGame.winningScore
@@ -365,7 +424,8 @@ app.post("/api/rounds", async (request, response) => {
       throw new Error("This game is already finished.");
     }
 
-    const scores = validateRoundScores(current.currentGame, incomingScores);
+    const activePlayers = getActivePlayers(current.currentGame);
+    const scores = validateRoundScores(activePlayers, incomingScores);
 
     const round: Round = {
       id: createId(),
@@ -410,8 +470,9 @@ app.patch("/api/rounds/:id", async (request, response) => {
       throw new Error("Round not found.");
     }
 
-    const scores = validateRoundScores(current.currentGame, incomingScores);
     const existingRound = current.currentGame.rounds[roundIndex];
+    const playersForRound = getPlayersActiveAt(current.currentGame, existingRound.createdAt);
+    const scores = validateRoundScores(playersForRound, incomingScores);
 
     if (isGameFinished(current.currentGame)) {
       const progress = getGameProgress(current.currentGame);
