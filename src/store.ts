@@ -131,6 +131,28 @@ const normalizeDatabase = (value: unknown): Database => {
 
 const sessionTableName = "app_sessions";
 
+export interface ScoreboardEntry {
+  playerId: string;
+  name: string;
+  total: number;
+}
+
+export interface WinnerSummary extends ScoreboardEntry {
+  threshold: number;
+  roundId: string;
+  roundNumber: number;
+  roundCreatedAt: string;
+}
+
+export interface GameProgress {
+  scoreboard: ScoreboardEntry[];
+  winner: WinnerSummary | null;
+  winningRoundId: string | null;
+  winningRoundNumber: number | null;
+  invalidRoundIds: string[];
+  completedAt: string | null;
+}
+
 export class PostgresStore {
   constructor(private readonly pool: Pool) {}
 
@@ -217,36 +239,60 @@ export class PostgresStore {
   }
 }
 
-export const summarizeGame = (game: Game) => {
-  const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
-
-  for (const round of game.rounds) {
-    for (const score of round.scores) {
-      totals[score.playerId] = (totals[score.playerId] ?? 0) + score.points;
-    }
-  }
-
-  return game.players
+const buildScoreboard = (players: Player[], totals: Record<string, number>): ScoreboardEntry[] =>
+  players
     .map((player) => ({
       playerId: player.id,
       name: player.name,
       total: totals[player.id] ?? 0
     }))
     .sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
-};
 
-export const getWinnerSummary = (game: Game) => {
-  const scoreboard = summarizeGame(game);
-  const leader = scoreboard[0];
+export const getGameProgress = (game: Game): GameProgress => {
+  const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
+  let winner: WinnerSummary | null = null;
+  let winningRoundId: string | null = null;
+  let winningRoundNumber: number | null = null;
+  let completedAt: string | null = null;
 
-  if (!leader || leader.total < game.winningScore) {
-    return null;
+  for (let index = 0; index < game.rounds.length; index += 1) {
+    const round = game.rounds[index];
+
+    for (const score of round.scores) {
+      totals[score.playerId] = (totals[score.playerId] ?? 0) + score.points;
+    }
+
+    const scoreboard = buildScoreboard(game.players, totals);
+    const leader = scoreboard[0];
+
+    if (leader && leader.total >= game.winningScore) {
+      winner = {
+        ...leader,
+        threshold: game.winningScore,
+        roundId: round.id,
+        roundNumber: index + 1,
+        roundCreatedAt: round.createdAt
+      };
+      winningRoundId = round.id;
+      winningRoundNumber = index + 1;
+      completedAt = round.createdAt;
+      break;
+    }
   }
 
   return {
-    ...leader,
-    threshold: game.winningScore
+    scoreboard: buildScoreboard(game.players, totals),
+    winner,
+    winningRoundId,
+    winningRoundNumber,
+    invalidRoundIds:
+      winningRoundNumber !== null ? game.rounds.slice(winningRoundNumber).map((round) => round.id) : [],
+    completedAt
   };
 };
+
+export const summarizeGame = (game: Game) => getGameProgress(game).scoreboard;
+
+export const getWinnerSummary = (game: Game) => getGameProgress(game).winner;
 
 export const isGameFinished = (game: Game) => getWinnerSummary(game) !== null;

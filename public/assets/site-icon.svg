@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Flip 7 icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b1410"/>
+      <stop offset="100%" stop-color="#110d0a"/>
+    </linearGradient>
+    <linearGradient id="seven" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd86a"/>
+      <stop offset="100%" stop-color="#ffbf2f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <g transform="translate(0 8)">
+    <rect x="140" y="96" width="54" height="132" rx="24" transform="rotate(-62 167 162)" fill="#4fd2e6"/>
+    <rect x="166" y="82" width="54" height="132" rx="24" transform="rotate(-46 193 148)" fill="#f76c5e"/>
+    <rect x="198" y="72" width="54" height="132" rx="24" transform="rotate(-30 225 138)" fill="#ffd86a"/>
+    <rect x="232" y="68" width="54" height="132" rx="24" transform="rotate(-16 259 134)" fill="#f8f1da"/>
+  </g>
+  <text x="258" y="356"
+        text-anchor="middle"
+        font-family="Arial Black, system-ui, sans-serif"
+        font-size="280"
+        font-weight="900"
+        fill="url(#seven)"
+        stroke="#5833c7"
+        stroke-width="16"
+        paint-order="stroke fill">
+    7
+  </text>
+</svg>

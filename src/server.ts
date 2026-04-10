@@ -3,7 +3,11 @@ import crypto from "node:crypto";
 import path from "node:path";
 import express from "express";
 import { Pool } from "pg";
-import { getWinnerSummary, isGameFinished, PostgresStore, summarizeGame } from "./store";
+import {
+  getGameProgress,
+  isGameFinished,
+  PostgresStore
+} from "./store";
 import { Game, GameMode, Player, Round, RoundScore } from "./types";
 
 const app = express();
@@ -116,25 +120,68 @@ const createGame = (
 const archiveCurrentGame = (gameHistory: Game[], currentGame: Game | null) =>
   currentGame ? [currentGame, ...gameHistory] : gameHistory;
 
+const validateRoundScores = (currentGame: Game, incomingScores: unknown[]) => {
+  const validPlayers = new Set(currentGame.players.map((player) => player.id));
+  const scores: RoundScore[] = incomingScores.map((score) => ({
+    playerId: String((score as { playerId?: unknown }).playerId),
+    points: Number((score as { points?: unknown }).points ?? 0)
+  }));
+
+  if (scores.length !== currentGame.players.length) {
+    throw new Error("Each player needs a score for the round.");
+  }
+
+  for (const score of scores) {
+    if (!validPlayers.has(score.playerId)) {
+      throw new Error("A round included an unknown player.");
+    }
+
+    if (!Number.isFinite(score.points)) {
+      throw new Error("Scores must be valid numbers.");
+    }
+  }
+
+  const seenPlayers = new Set(scores.map((score) => score.playerId));
+  if (seenPlayers.size !== currentGame.players.length) {
+    throw new Error("Each player should appear only once per round.");
+  }
+
+  return scores;
+};
+
+const finalizeGameState = (game: Game) => {
+  const progress = getGameProgress(game);
+  return {
+    ...game,
+    completedAt: progress.completedAt
+  };
+};
+
 const toGameResponse = (game: Game | null) => {
   if (!game) {
     return null;
   }
 
-  const scoreboard = summarizeGame(game);
-  const winner = getWinnerSummary(game);
+  const progress = getGameProgress(game);
+  const winner = progress.winner;
 
   return {
     ...game,
-    scoreboard,
+    completedAt: game.completedAt || progress.completedAt,
+    scoreboard: progress.scoreboard,
     isFinished: winner !== null,
-    winner
+    winner,
+    invalidRoundIds: progress.invalidRoundIds,
+    winningRoundId: progress.winningRoundId,
+    winningRoundNumber: progress.winningRoundNumber
   };
 };
 
+const decorateGames = (games: Game[]) => games.map((game) => toGameResponse(game));
+
 app.get("/api/game", async (_request, response) => {
   const database = await readDatabase(_request);
-  response.json({ game: toGameResponse(database.currentGame), history: database.gameHistory });
+  response.json({ game: toGameResponse(database.currentGame), history: decorateGames(database.gameHistory) });
 });
 
 app.post("/api/game", async (request, response) => {
@@ -150,7 +197,10 @@ app.post("/api/game", async (request, response) => {
       gameHistory: archiveCurrentGame(current.gameHistory, current.currentGame)
     }));
 
-    response.status(201).json({ game: toGameResponse(database.currentGame) });
+    response.status(201).json({
+      game: toGameResponse(database.currentGame),
+      history: decorateGames(database.gameHistory)
+    });
   } catch (error) {
     response.status(400).json({ error: (error as Error).message });
   }
@@ -271,7 +321,7 @@ app.post("/api/game/restart", async (request, response) => {
     return;
   }
 
-  response.status(201).json({ game: toGameResponse(database.currentGame), history: database.gameHistory });
+  response.status(201).json({ game: toGameResponse(database.currentGame), history: decorateGames(database.gameHistory) });
 });
 
 app.post("/api/game/:id/resume", async (request, response) => {
@@ -299,7 +349,7 @@ app.post("/api/game/:id/resume", async (request, response) => {
     return;
   }
 
-  response.status(200).json({ game: toGameResponse(database.currentGame), history: database.gameHistory });
+  response.status(200).json({ game: toGameResponse(database.currentGame), history: decorateGames(database.gameHistory) });
 });
 
 app.post("/api/rounds", async (request, response) => {
@@ -315,30 +365,7 @@ app.post("/api/rounds", async (request, response) => {
       throw new Error("This game is already finished.");
     }
 
-    const validPlayers = new Set(current.currentGame.players.map((player) => player.id));
-    const scores: RoundScore[] = incomingScores.map((score) => ({
-      playerId: String((score as { playerId?: unknown }).playerId),
-      points: Number((score as { points?: unknown }).points ?? 0)
-    }));
-
-    if (scores.length !== current.currentGame.players.length) {
-      throw new Error("Each player needs a score for the round.");
-    }
-
-    for (const score of scores) {
-      if (!validPlayers.has(score.playerId)) {
-        throw new Error("A round included an unknown player.");
-      }
-
-      if (!Number.isFinite(score.points)) {
-        throw new Error("Scores must be valid numbers.");
-      }
-    }
-
-    const seenPlayers = new Set(scores.map((score) => score.playerId));
-    if (seenPlayers.size !== current.currentGame.players.length) {
-      throw new Error("Each player should appear only once per round.");
-    }
+    const scores = validateRoundScores(current.currentGame, incomingScores);
 
     const round: Round = {
       id: createId(),
@@ -354,11 +381,7 @@ app.post("/api/rounds", async (request, response) => {
       rounds: [...current.currentGame.rounds, round]
     };
 
-    if (isGameFinished(updatedGame)) {
-      updatedGame.completedAt = now();
-    }
-
-    return { ...current, currentGame: updatedGame };
+    return { ...current, currentGame: finalizeGameState(updatedGame) };
   }).catch((error: Error) => {
     response.status(400).json({ error: error.message });
     return null;
@@ -371,13 +394,75 @@ app.post("/api/rounds", async (request, response) => {
   response.status(201).json({ game: toGameResponse(database.currentGame) });
 });
 
+app.patch("/api/rounds/:id", async (request, response) => {
+  const roundId = String(request.params.id ?? "");
+  const note = String(request.body?.note ?? "").trim();
+  const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
+
+  const database = await updateDatabase(request, (current) => {
+    if (!current.currentGame) {
+      throw new Error("Start a game before editing rounds.");
+    }
+
+    const roundIndex = current.currentGame.rounds.findIndex((round) => round.id === roundId);
+
+    if (roundIndex < 0) {
+      throw new Error("Round not found.");
+    }
+
+    const scores = validateRoundScores(current.currentGame, incomingScores);
+    const existingRound = current.currentGame.rounds[roundIndex];
+
+    if (isGameFinished(current.currentGame)) {
+      const progress = getGameProgress(current.currentGame);
+
+      if (progress.winningRoundId !== roundId) {
+        throw new Error("This game is already finished.");
+      }
+
+      const sameScores =
+        scores.length === existingRound.scores.length &&
+        scores.every((score) => {
+          const existingScore = existingRound.scores.find((entry) => entry.playerId === score.playerId);
+          return Boolean(existingScore && existingScore.points === score.points);
+        });
+
+      if (!sameScores) {
+        throw new Error("Finished games can only update the final note.");
+      }
+    }
+
+    const rounds = current.currentGame.rounds.map((round, index) =>
+      index === roundIndex ? { ...round, note, scores } : round
+    );
+
+    const updatedGame: Game = {
+      ...current.currentGame,
+      updatedAt: now(),
+      completedAt: null,
+      rounds
+    };
+
+    return { ...current, currentGame: finalizeGameState(updatedGame) };
+  }).catch((error: Error) => {
+    response.status(400).json({ error: error.message });
+    return null;
+  });
+
+  if (!database) {
+    return;
+  }
+
+  response.status(200).json({ game: toGameResponse(database.currentGame) });
+});
+
 app.delete("/api/game", async (_request, response) => {
   const database = await updateDatabase(_request, (current) => ({
     currentGame: null,
     gameHistory: archiveCurrentGame(current.gameHistory, current.currentGame)
   }));
 
-  response.json({ game: null, history: database.gameHistory });
+  response.json({ game: null, history: decorateGames(database.gameHistory) });
 });
 
 app.delete("/api/history/:id", async (request, response) => {
@@ -404,7 +489,7 @@ app.delete("/api/history/:id", async (request, response) => {
     return;
   }
 
-  response.json({ history: database.gameHistory });
+  response.json({ history: decorateGames(database.gameHistory) });
 });
 
 app.get(/^(?!\/api).*/, (_request, response) => {

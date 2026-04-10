@@ -3,9 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flip 7 Scorekeeper</title>
+    <title>Flip 7 Scorekeeper | Mobile score tracker for Flip 7</title>
+    <meta
+      name="description"
+      content="Flip 7 Scorekeeper is a mobile-first score tracker for Flip 7 tables. Track rounds, winners, game history, and player totals on flip.se."
+    />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#ff9f5d" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="canonical" href="https://flip.se/" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/assets/site-icon.svg" color="#ff9f5d" />
+    <meta property="og:site_name" content="Flip 7 Scorekeeper" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://flip.se/" />
+    <meta property="og:title" content="Flip 7 Scorekeeper" />
+    <meta
+      property="og:description"
+      content="A mobile-first score tracker for Flip 7 tables. Track rounds, winners, and game history on flip.se."
+    />
+    <meta property="og:image" content="https://flip.se/assets/share-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Flip 7 Scorekeeper" />
+    <meta
+      name="twitter:description"
+      content="A mobile-first score tracker for Flip 7 tables. Track rounds, winners, and game history on flip.se."
+    />
+    <meta name="twitter:image" content="https://flip.se/assets/share-card.png" />
+    <meta name="twitter:image:alt" content="Flip 7 Scorekeeper" />
     <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Flip 7 Scorekeeper",
+        "url": "https://flip.se/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "description": "A mobile-first score tracker for Flip 7 tables. Track rounds, winners, game history, and player totals."
+      }
+    </script>
   </head>
   <body>
     <div id="app-backdrop" class="backdrop hidden" aria-hidden="true"></div>
@@ -20,8 +63,9 @@
     </header>
 
     <nav id="drawer" class="drawer hidden" aria-label="Primary navigation">
-      <button class="drawer-link" type="button" data-route="home">Home</button>
+      <button class="drawer-link" type="button" data-route="new-game">Play new game</button>
       <button class="drawer-link" type="button" data-route="current-game">Current Game</button>
+      <button class="drawer-link" type="button" data-route="existing-games">Browse games</button>
       <button class="drawer-link" type="button" data-route="stats">Stats</button>
       <button class="drawer-link" type="button" data-route="settings">Settings</button>
     </nav>

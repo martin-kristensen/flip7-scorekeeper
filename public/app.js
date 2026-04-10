@@ -3,7 +3,8 @@ const DEFAULT_SETTINGS = {
   theme: "system",
   language: "en",
   defaultWinningScore: 200,
-  confirmBeforeNextRound: false
+  confirmBeforeNextRound: false,
+  hiddenRecentGameIds: []
 };
 
 const TRANSLATIONS = {
@@ -14,7 +15,8 @@ const TRANSLATIONS = {
       brandSecondary: "Scorekeeper"
     },
     nav: {
-      home: "Home",
+      playNewGame: "Play new game",
+      browseGames: "Browse games",
       currentGame: "Current Game",
       stats: "Stats",
       settings: "Settings",
@@ -57,11 +59,11 @@ const TRANSLATIONS = {
       title: "A score table with a bit more spark.",
       lead: "Start a fresh game or jump back into a recent one.",
       startFresh: "Start a game",
-      selectExisting: "Browse games",
       continueCurrent: "Jump back in",
       activeGameLabel: "Live table",
       noActiveGame: "No live table right now.",
       recentGames: "Recent games",
+      removeRecent: "Remove",
       credits: "Built in Sibbarp by Martin Kristensen, Codex, and Klangen82."
     },
     newGame: {
@@ -107,8 +109,24 @@ const TRANSLATIONS = {
       orderBy: "Order",
       enteredOrder: "Entered",
       leaderFirst: "Leader first",
+      roundNavigation: "Round navigation",
+      previousRound: "Previous round",
+      nextRound: "Next round",
+      liveRound: "Live round",
+      liveRoundStatus: "Ready to score",
+      readOnlyRound: "Read only",
+      editingRound: "Editing round",
+      roundCounter: "Round {{current}} / {{total}}",
       roundNumber: "Round {{count}}",
       roundNote: "Round note (optional)",
+      finalNote: "Final note (optional)",
+      noNote: "No note",
+      roundHistory: "Round history",
+      winningRound: "Winning round",
+      invalidRound: "Invalid",
+      shouldHaveEndedAtRound: "Game should have ended at Round {{count}}.",
+      invalidRoundsNote: "Later rounds stay visible for review, but they do not count in totals.",
+      backToLive: "Back to live",
       saveRound: "Next round",
       archiveGame: "Tuck away game",
       newGame: "Start a game",
@@ -127,6 +145,10 @@ const TRANSLATIONS = {
       title: "Score story",
       lead: "A quick look at the live game or the latest finished one.",
       noStats: "Start or resume a game to see the numbers.",
+      scopeLabel: "View",
+      pickLabel: "Pick a game",
+      allGames: "All games",
+      pickGame: "Pick a game",
       leader: "Front runner",
       highestSingleScore: "Highest single score",
       lowestSingleScore: "Lowest single score",
@@ -134,6 +156,8 @@ const TRANSLATIONS = {
       averageRound: "Average round",
       highestRoundTotal: "Highest round total",
       lowestRoundTotal: "Lowest round total",
+      totalGames: "Games played",
+      averageRoundsPerGame: "Avg. rounds per game",
       perPlayerTotals: "Per-player totals",
       roundHistory: "Round history",
       winner: "Winner",
@@ -167,6 +191,7 @@ const TRANSLATIONS = {
       gameArchived: "Game tucked away.",
       gameResumed: "Game reopened.",
       gameDeleted: "Saved game removed.",
+      recentRemoved: "Removed from recent games.",
       preferencesReset: "Table settings reset."
     }
   },
@@ -177,7 +202,8 @@ const TRANSLATIONS = {
       brandSecondary: "Poängräknare"
     },
     nav: {
-      home: "Hem",
+      playNewGame: "Spela nytt spel",
+      browseGames: "Bläddra spel",
       currentGame: "Pågående spel",
       stats: "Statistik",
       settings: "Inställningar",
@@ -220,11 +246,11 @@ const TRANSLATIONS = {
       title: "Ett poängbord med lite mer spelglädje.",
       lead: "Starta ett nytt spel eller hoppa tillbaka till ett nyligt.",
       startFresh: "Starta ett spel",
-      selectExisting: "Bläddra spel",
       continueCurrent: "Hoppa in igen",
       activeGameLabel: "Livebord",
       noActiveGame: "Inget livebord just nu.",
       recentGames: "Nyliga spel",
+      removeRecent: "Ta bort",
       credits: "Byggt i Sibbarp av Martin Kristensen, Codex och Klangen82."
     },
     newGame: {
@@ -270,8 +296,24 @@ const TRANSLATIONS = {
       orderBy: "Ordning",
       enteredOrder: "Som inmatat",
       leaderFirst: "Ledaren först",
+      roundNavigation: "Omgångsnavigering",
+      previousRound: "Föregående omgång",
+      nextRound: "Nästa omgång",
+      liveRound: "Liveomgång",
+      liveRoundStatus: "Redo att fylla i poäng",
+      readOnlyRound: "Läsläge",
+      editingRound: "Redigerar omgång",
+      roundCounter: "Omgång {{current}} / {{total}}",
       roundNumber: "Omgång {{count}}",
       roundNote: "Anteckning för rundan (valfri)",
+      finalNote: "Slutnotering (valfri)",
+      noNote: "Ingen anteckning",
+      roundHistory: "Omgångshistorik",
+      winningRound: "Avgörande omgång",
+      invalidRound: "Ogiltig",
+      shouldHaveEndedAtRound: "Spelet borde ha slutat vid omgång {{count}}.",
+      invalidRoundsNote: "Senare omgångar sparas för granskning, men räknas inte i totalsumman.",
+      backToLive: "Till livebordet",
       saveRound: "Nästa omgång",
       archiveGame: "Flytta till arkiv",
       newGame: "Starta ett spel",
@@ -290,6 +332,10 @@ const TRANSLATIONS = {
       title: "Poängstatistik",
       lead: "En snabb blick på det aktiva spelet eller det senaste avslutade.",
       noStats: "Starta eller fortsätt ett spel för att se siffrorna.",
+      scopeLabel: "Visa",
+      pickLabel: "Välj ett spel",
+      allGames: "Alla spel",
+      pickGame: "Välj ett spel",
       leader: "Ledare",
       highestSingleScore: "Högsta enskilda poäng",
       lowestSingleScore: "Lägsta enskilda poäng",
@@ -297,6 +343,8 @@ const TRANSLATIONS = {
       averageRound: "Genomsnitt per omgång",
       highestRoundTotal: "Högsta omgångssumma",
       lowestRoundTotal: "Lägsta omgångssumma",
+      totalGames: "Spelade spel",
+      averageRoundsPerGame: "Snitt omgångar per spel",
       perPlayerTotals: "Totalsumma per spelare",
       roundHistory: "Omgångshistorik",
       winner: "Vinnare",
@@ -330,6 +378,7 @@ const TRANSLATIONS = {
       gameArchived: "Spelet är arkiverat.",
       gameResumed: "Spelet är öppnat igen.",
       gameDeleted: "Sparat spel borttaget.",
+      recentRemoved: "Borttagen från nyliga spel.",
       preferencesReset: "Bordets inställningar återställda."
     }
   }
@@ -353,9 +402,20 @@ const state = {
       playerInput: "",
       players: []
     },
+    statsScope: "current",
+    statsGameId: "",
     currentGameOrder: "entered",
+    currentRoundKey: "new",
+    liveRoundVersion: 0,
     roundNote: "",
-    roundScores: {}
+    roundScores: {},
+    finishedRoundNoteSaveTimeoutId: null,
+    roundDrafts: {
+      new: {
+        roundNote: "",
+        roundScores: {}
+      }
+    }
   },
   homeSwipe: null,
   homeSwipeSuppressClickId: null,
@@ -425,7 +485,10 @@ function loadSettings() {
       confirmBeforeNextRound:
         typeof parsed.confirmBeforeNextRound === "boolean"
           ? parsed.confirmBeforeNextRound
-          : DEFAULT_SETTINGS.confirmBeforeNextRound
+          : DEFAULT_SETTINGS.confirmBeforeNextRound,
+      hiddenRecentGameIds: Array.isArray(parsed.hiddenRecentGameIds)
+        ? parsed.hiddenRecentGameIds.filter((value) => typeof value === "string" && value.length > 0)
+        : []
     };
   } catch {
     return getDefaultSettings(preferredLanguage);
@@ -447,6 +510,7 @@ function getPreferredLanguage() {
 function getDefaultSettings(language = getPreferredLanguage()) {
   return {
     ...DEFAULT_SETTINGS,
+    hiddenRecentGameIds: [],
     language
   };
 }
@@ -504,6 +568,70 @@ function gameModeLabel(mode) {
   return t(`modes.${mode}`);
 }
 
+function buildScoreboard(players, totals) {
+  return players
+    .map((player) => ({
+      playerId: player.id,
+      name: player.name,
+      total: totals[player.id] || 0
+    }))
+    .sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
+}
+
+function getGameProgress(game) {
+  if (!game) {
+    return {
+      scoreboard: [],
+      winner: null,
+      winningRoundId: null,
+      winningRoundNumber: null,
+      invalidRoundIds: [],
+      completedAt: null
+    };
+  }
+
+  const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
+  let winner = null;
+  let winningRoundId = null;
+  let winningRoundNumber = null;
+  let completedAt = null;
+
+  for (let index = 0; index < game.rounds.length; index += 1) {
+    const round = game.rounds[index];
+
+    for (const score of round.scores || []) {
+      totals[score.playerId] = (totals[score.playerId] || 0) + score.points;
+    }
+
+    const scoreboard = buildScoreboard(game.players, totals);
+    const leader = scoreboard[0];
+
+    if (leader && leader.total >= game.winningScore) {
+      winner = {
+        ...leader,
+        threshold: game.winningScore,
+        roundId: round.id,
+        roundNumber: index + 1,
+        roundCreatedAt: round.createdAt
+      };
+      winningRoundId = round.id;
+      winningRoundNumber = index + 1;
+      completedAt = round.createdAt;
+      break;
+    }
+  }
+
+  return {
+    scoreboard: buildScoreboard(game.players, totals),
+    winner,
+    winningRoundId,
+    winningRoundNumber,
+    invalidRoundIds:
+      winningRoundNumber !== null ? game.rounds.slice(winningRoundNumber).map((round) => round.id) : [],
+    completedAt
+  };
+}
+
 function resolveTheme() {
   if (state.settings.theme === "system") {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -520,42 +648,11 @@ function applyPreferences() {
 }
 
 function summarizeGame(game) {
-  if (!game) {
-    return [];
-  }
-
-  const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
-
-  for (const round of game.rounds || []) {
-    for (const score of round.scores || []) {
-      totals[score.playerId] = (totals[score.playerId] || 0) + score.points;
-    }
-  }
-
-  return game.players
-    .map((player) => ({
-      playerId: player.id,
-      name: player.name,
-      total: totals[player.id] || 0
-    }))
-    .sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
+  return getGameProgress(game).scoreboard;
 }
 
 function getWinner(game) {
-  if (!game) {
-    return null;
-  }
-
-  const leaderboard = summarizeGame(game);
-  const leader = leaderboard[0];
-  if (!leader || leader.total < game.winningScore) {
-    return null;
-  }
-
-  return {
-    ...leader,
-    threshold: game.winningScore
-  };
+  return getGameProgress(game).winner;
 }
 
 function getActiveStatsGame() {
@@ -563,12 +660,14 @@ function getActiveStatsGame() {
 }
 
 function buildGameStats(game) {
-  const scoreboard = summarizeGame(game);
-  const rounds = game?.rounds || [];
-  const roundTotals = rounds.map((round) =>
+  const progress = getGameProgress(game);
+  const activeRounds =
+    progress.winningRoundNumber !== null ? game.rounds.slice(0, progress.winningRoundNumber) : game.rounds;
+  const scoreboard = progress.scoreboard;
+  const roundTotals = activeRounds.map((round) =>
     round.scores.reduce((sum, score) => sum + score.points, 0)
   );
-  const singleScores = rounds.flatMap((round) => round.scores.map((score) => score.points));
+  const singleScores = activeRounds.flatMap((round) => round.scores.map((score) => score.points));
   const highestSingleScore = singleScores.length ? Math.max(...singleScores) : 0;
   const lowestSingleScore = singleScores.length ? Math.min(...singleScores) : 0;
   const highestRoundTotal = roundTotals.length ? Math.max(...roundTotals) : 0;
@@ -579,7 +678,7 @@ function buildGameStats(game) {
 
   return {
     scoreboard,
-    rounds,
+    rounds: activeRounds,
     roundTotals,
     highestSingleScore,
     lowestSingleScore,
@@ -588,6 +687,60 @@ function buildGameStats(game) {
     averageRoundTotal,
     leader: scoreboard[0] || null,
     winner: getWinner(game)
+  };
+}
+
+function getStatsGames() {
+  const games = [];
+
+  if (state.data.currentGame) {
+    games.push(state.data.currentGame);
+  }
+
+  for (const game of state.data.history) {
+    if (!games.some((entry) => entry.id === game.id)) {
+      games.push(game);
+    }
+  }
+
+  return games;
+}
+
+function buildAllGamesStats(games) {
+  const activeRounds = games.flatMap((game) => {
+    const progress = getGameProgress(game);
+    const rounds =
+      progress.winningRoundNumber !== null ? game.rounds.slice(0, progress.winningRoundNumber) : game.rounds;
+
+    return rounds.map((round) => ({
+      gameId: game.id,
+      gameTitle: game.title,
+      round
+    }));
+  });
+
+  const roundTotals = activeRounds.map(({ round }) => round.scores.reduce((sum, score) => sum + score.points, 0));
+  const singleScores = activeRounds.flatMap(({ round }) => round.scores.map((score) => score.points));
+  const highestSingleScore = singleScores.length ? Math.max(...singleScores) : 0;
+  const lowestSingleScore = singleScores.length ? Math.min(...singleScores) : 0;
+  const highestRoundTotal = roundTotals.length ? Math.max(...roundTotals) : 0;
+  const lowestRoundTotal = roundTotals.length ? Math.min(...roundTotals) : 0;
+  const averageRoundTotal = roundTotals.length
+    ? roundTotals.reduce((sum, value) => sum + value, 0) / roundTotals.length
+    : 0;
+
+  return {
+    games,
+    rounds: activeRounds,
+    roundTotals,
+    highestSingleScore,
+    lowestSingleScore,
+    highestRoundTotal,
+    lowestRoundTotal,
+    averageRoundTotal,
+    totalGames: games.length,
+    totalRounds: activeRounds.length,
+    averageRoundsPerGame: games.length ? activeRounds.length / games.length : 0
   };
 }
 
@@ -608,6 +761,35 @@ function getCurrentGamePlayers(game) {
   });
 }
 
+function getStatsScopeState() {
+  const games = getStatsGames();
+  if (!games.length) {
+    return { mode: "single", game: null, games };
+  }
+
+  if (games.length === 1) {
+    return { mode: "single", game: games[0], games };
+  }
+
+  const hasCurrentGame = Boolean(state.data.currentGame);
+  const scope = hasCurrentGame ? state.draft.statsScope : state.draft.statsScope === "current" ? "all" : state.draft.statsScope;
+
+  if (scope === "all") {
+    return { mode: "all", games };
+  }
+
+  if (scope === "pick") {
+    const selectedGame =
+      games.find((game) => game.id === state.draft.statsGameId) ||
+      (hasCurrentGame ? state.data.currentGame : games[0]) ||
+      null;
+    return { mode: "pick", game: selectedGame, games };
+  }
+
+  const currentGame = state.data.currentGame || games[0];
+  return { mode: hasCurrentGame ? "current" : "single", game: currentGame, games };
+}
+
 async function api(url, options = {}) {
   const response = await fetch(url, {
     credentials: "same-origin",
@@ -619,13 +801,163 @@ async function api(url, options = {}) {
   });
 
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  let payload = {};
+
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = { error: text };
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(payload.error || "Something went wrong.");
+    throw new Error(typeof payload?.error === "string" ? payload.error : "Something went wrong.");
   }
 
   return payload;
+}
+
+const cloneValue = (value) => {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
+  }
+
+  return JSON.parse(JSON.stringify(value));
+};
+
+const now = () => new Date().toISOString();
+
+function snapshotAppState() {
+  return {
+    data: {
+      currentGame: state.data.currentGame,
+      history: [...state.data.history]
+    },
+    draft: cloneValue(state.draft),
+    route: state.route,
+    drawerOpen: state.drawerOpen,
+    menu: state.menu ? { ...state.menu } : null,
+    confirmNextRoundOpen: state.confirmNextRoundOpen,
+    homeSwipeSuppressClickId: state.homeSwipeSuppressClickId
+  };
+}
+
+function restoreAppState(snapshot) {
+  clearFinishedRoundNoteAutosave();
+  state.data = snapshot.data;
+  state.draft = snapshot.draft;
+  state.draft.finishedRoundNoteSaveTimeoutId = null;
+  state.route = snapshot.route;
+  state.drawerOpen = snapshot.drawerOpen;
+  state.menu = snapshot.menu;
+  state.confirmNextRoundOpen = snapshot.confirmNextRoundOpen;
+  state.homeSwipeSuppressClickId = snapshot.homeSwipeSuppressClickId;
+  clearHomeSwipeState();
+
+  if (window.location.hash.replace("#", "") !== snapshot.route) {
+    window.location.hash = snapshot.route;
+  }
+}
+
+function makePlayers(playerNames) {
+  return Array.from(new Set(playerNames.map((name) => name.trim()).filter(Boolean))).map((name) => ({
+    id: crypto.randomUUID(),
+    name
+  }));
+}
+
+function makeNewGame({ title, gameMode, winningScore, playerNames }) {
+  const players = makePlayers(playerNames);
+  const timestamp = now();
+
+  return {
+    id: crypto.randomUUID(),
+    title: title.trim() || "Flip 7 Game",
+    gameMode,
+    winningScore,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    completedAt: null,
+    players,
+    rounds: [],
+    isFinished: false,
+    winner: null
+  };
+}
+
+function makeRestartedGame(game, title = game.title) {
+  return makeNewGame({
+    title,
+    gameMode: game.gameMode,
+    winningScore: game.winningScore,
+    playerNames: game.players.map((player) => player.name)
+  });
+}
+
+function decorateGame(game) {
+  const progress = getGameProgress(game);
+  return {
+    ...game,
+    completedAt: game.completedAt || progress.completedAt,
+    scoreboard: progress.scoreboard,
+    isFinished: Boolean(progress.winner),
+    winner: progress.winner,
+    invalidRoundIds: progress.invalidRoundIds,
+    winningRoundId: progress.winningRoundId,
+    winningRoundNumber: progress.winningRoundNumber
+  };
+}
+
+function appendCurrentGameToHistory(history, currentGame) {
+  if (!currentGame) {
+    return history;
+  }
+
+  return [currentGame, ...history.filter((game) => game.id !== currentGame.id)];
+}
+
+function getHiddenRecentGameIds() {
+  return new Set(
+    Array.isArray(state.settings.hiddenRecentGameIds)
+      ? state.settings.hiddenRecentGameIds.filter((value) => typeof value === "string" && value.length > 0)
+      : []
+  );
+}
+
+function hideRecentGame(gameId) {
+  if (!gameId) {
+    return;
+  }
+
+  if (state.data.currentGame?.id === gameId) {
+    return;
+  }
+
+  const hidden = getHiddenRecentGameIds();
+  if (hidden.has(gameId)) {
+    return;
+  }
+
+  hidden.add(gameId);
+  state.settings.hiddenRecentGameIds = [...hidden];
+  saveSettings();
+  clearHomeSwipeState();
+  showToast(t("toast.recentRemoved"));
+  render();
+}
+
+function remapRoundScores(previousPlayers, nextPlayers, draftScores) {
+  const previousByName = new Map(previousPlayers.map((player) => [player.name.toLowerCase(), player.id]));
+
+  return nextPlayers.reduce((scores, player, index) => {
+    const previousPlayer = previousPlayers[index];
+    const previousId = previousPlayer?.id || previousByName.get(player.name.toLowerCase());
+    const value = draftScores[player.id] ?? (previousId ? draftScores[previousId] : undefined);
+
+    scores[player.id] = value === "" || value === null || value === undefined ? "" : String(value);
+    return scores;
+  }, {});
 }
 
 function showToast(message, isError = false) {
@@ -636,6 +968,11 @@ function showToast(message, isError = false) {
   showToast.timeoutId = window.setTimeout(() => {
     elements.toast.classList.add("hidden");
   }, 2600);
+}
+
+function hideToast() {
+  clearTimeout(showToast.timeoutId);
+  elements.toast.classList.add("hidden");
 }
 
 function setRoute(route, { replace = false } = {}) {
@@ -657,25 +994,439 @@ function getCurrentGame() {
   return state.data.currentGame;
 }
 
-function ensureRoundDraft(game) {
-  if (!game) {
-    state.draft.roundScores = {};
-    state.draft.roundNote = "";
-    return;
+function getRoundDraftKey(roundKey = state.draft.currentRoundKey) {
+  return roundKey || "new";
+}
+
+function createBlankRoundDraft(game) {
+  return {
+    roundNote: "",
+    roundScores: Object.fromEntries(game.players.map((player) => [player.id, ""]))
+  };
+}
+
+function createRoundDraftFromRound(game, round) {
+  const draft = createBlankRoundDraft(game);
+
+  if (!round) {
+    return draft;
   }
 
+  draft.roundNote = round.note;
+  for (const score of round.scores) {
+    draft.roundScores[score.playerId] = String(score.points);
+  }
+
+  return draft;
+}
+
+function normalizeRoundDraft(game, draft) {
   const nextScores = {};
   for (const player of game.players) {
-    const currentValue = state.draft.roundScores[player.id];
+    const currentValue = draft?.roundScores?.[player.id];
     nextScores[player.id] =
       currentValue === "" || currentValue === null || currentValue === undefined ? "" : String(currentValue);
   }
 
-  state.draft.roundScores = nextScores;
+  return {
+    roundNote: draft?.roundNote ? String(draft.roundNote) : "",
+    roundScores: nextScores
+  };
+}
+
+function cacheRoundDraft(game, roundKey = state.draft.currentRoundKey) {
+  const key = getRoundDraftKey(roundKey);
+  const draft = normalizeRoundDraft(game, {
+    roundNote: state.draft.roundNote,
+    roundScores: state.draft.roundScores
+  });
+  state.draft.roundDrafts[key] = draft;
+  return draft;
+}
+
+function resetLiveRoundDraft(game) {
+  if (!game) {
+    return;
+  }
+
+  const blankDraft = createBlankRoundDraft(game);
+  state.draft.liveRoundVersion += 1;
+  state.draft.currentRoundKey = "new";
+  state.draft.roundNote = blankDraft.roundNote;
+  state.draft.roundScores = blankDraft.roundScores;
+  state.draft.roundDrafts.new = blankDraft;
+}
+
+function loadRoundDraft(game, roundKey = "new") {
+  if (!game) {
+    state.draft.currentRoundKey = "new";
+    state.draft.roundNote = "";
+    state.draft.roundScores = {};
+    state.draft.roundDrafts = {
+      new: {
+        roundNote: "",
+        roundScores: {}
+      }
+    };
+    return;
+  }
+
+  const key = getRoundDraftKey(roundKey);
+  const round = key === "new" ? null : game.rounds.find((entry) => entry.id === key) || null;
+  const draft =
+    state.draft.roundDrafts[key] ||
+    (round ? createRoundDraftFromRound(game, round) : createBlankRoundDraft(game));
+  const normalized = normalizeRoundDraft(game, draft);
+
+  state.draft.currentRoundKey = key;
+  state.draft.roundNote = normalized.roundNote;
+  state.draft.roundScores = normalized.roundScores;
+  state.draft.roundDrafts[key] = normalized;
+}
+
+function getSelectedRound(game) {
+  if (!game) {
+    return null;
+  }
+
+  const key = getRoundDraftKey();
+  if (key === "new") {
+    return null;
+  }
+
+  return game.rounds.find((round) => round.id === key) || null;
+}
+
+function getSelectedRoundIndex(game) {
+  if (!game) {
+    return -1;
+  }
+
+  const key = getRoundDraftKey();
+  if (key === "new") {
+    return game.rounds.length;
+  }
+
+  const index = game.rounds.findIndex((round) => round.id === key);
+  return index >= 0 ? index : game.rounds.length;
+}
+
+function isRoundDraftLive() {
+  return getRoundDraftKey() === "new";
+}
+
+function getRoundDraftPayload(game) {
+  const scores = game.players.map((player) => ({
+    playerId: player.id,
+    points: Number(state.draft.roundScores[player.id] || 0)
+  }));
+
+  return {
+    note: state.draft.roundNote.trim(),
+    scores
+  };
+}
+
+function isCurrentRoundFinished(game) {
+  const selectedRound = getSelectedRound(game);
+  return Boolean(selectedRound && game.invalidRoundIds?.includes(selectedRound.id));
+}
+
+function syncRoundDraftWithGame(game) {
+  if (!game) {
+    loadRoundDraft(null);
+    return;
+  }
+
+  if (game.isFinished) {
+    const key = getRoundDraftKey();
+    const resolvedKey =
+      key === "new" || !game.rounds.some((round) => round.id === key)
+        ? game.winningRoundId || (game.rounds[0]?.id ?? "new")
+        : key;
+    loadRoundDraft(game, resolvedKey);
+    return;
+  }
+
+  const key = getRoundDraftKey();
+  if (key !== "new" && !game.rounds.some((round) => round.id === key)) {
+    loadRoundDraft(game, "new");
+    return;
+  }
+
+  loadRoundDraft(game, key);
+}
+
+function ensureRoundDraft(game) {
+  syncRoundDraftWithGame(game);
+}
+
+function isRoundDraftEditable(game) {
+  return Boolean(game && !game.isFinished && !isCurrentRoundFinished(game));
+}
+
+function clearFinishedRoundNoteAutosave() {
+  if (state.draft.finishedRoundNoteSaveTimeoutId !== null) {
+    window.clearTimeout(state.draft.finishedRoundNoteSaveTimeoutId);
+    state.draft.finishedRoundNoteSaveTimeoutId = null;
+  }
+}
+
+function isRoundDraftChanged(game) {
+  if (!game) {
+    return false;
+  }
+
+  const selectedRound = getSelectedRound(game);
+  const currentNote = state.draft.roundNote.trim();
+
+  if (!selectedRound) {
+    return currentNote.length > 0 || game.players.some((player) => state.draft.roundScores[player.id] !== "");
+  }
+
+  const baseline = new Map(selectedRound.scores.map((score) => [score.playerId, score.points]));
+  if (selectedRound.note.trim() !== currentNote) {
+    return true;
+  }
+
+  return game.players.some((player) => {
+    const currentValue = state.draft.roundScores[player.id];
+    const normalizedCurrent =
+      currentValue === "" || currentValue === null || currentValue === undefined ? 0 : Number(currentValue);
+    return (baseline.get(player.id) ?? 0) !== normalizedCurrent;
+  });
+}
+
+async function saveFinishedRoundNote() {
+  const game = state.data.currentGame;
+  if (!game || !game.isFinished) {
+    return;
+  }
+
+  const selectedRound = getSelectedRound(game);
+  if (!selectedRound || selectedRound.id !== game.winningRoundId) {
+    return;
+  }
+
+  const note = state.draft.roundNote.trim();
+  if (selectedRound.note.trim() === note) {
+    return;
+  }
+  const payload = {
+    note,
+    scores: selectedRound.scores.map((score) => ({
+      playerId: score.playerId,
+      points: score.points
+    }))
+  };
+
+  try {
+    const response = await api(`/api/rounds/${encodeURIComponent(selectedRound.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+
+    if (response.game) {
+      state.data.currentGame = response.game;
+      ensureRoundDraft(state.data.currentGame);
+      render();
+    }
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+function queueFinishedRoundNoteSave() {
+  clearFinishedRoundNoteAutosave();
+
+  const game = state.data.currentGame;
+  if (!game || !game.isFinished) {
+    return;
+  }
+
+  state.draft.finishedRoundNoteSaveTimeoutId = window.setTimeout(() => {
+    state.draft.finishedRoundNoteSaveTimeoutId = null;
+    saveFinishedRoundNote();
+  }, 450);
+}
+
+function jumpToRound(game, roundKey) {
+  if (!game) {
+    return;
+  }
+
+  cacheRoundDraft(game);
+  loadRoundDraft(game, roundKey);
+}
+
+function getRoundNavigatorState(game) {
+  const rounds = game?.rounds || [];
+  const key = getRoundDraftKey();
+  const selectedRound = key === "new" ? null : rounds.find((round) => round.id === key) || null;
+  const selectedIndex = selectedRound ? rounds.findIndex((round) => round.id === key) : rounds.length;
+  const isLive = selectedRound === null;
+  const label = selectedRound
+    ? t("current.roundCounter", { current: selectedIndex + 1, total: rounds.length })
+    : t("current.roundNumber", { count: rounds.length + 1 });
+  const status = game?.isFinished
+    ? t("current.readOnlyRound")
+    : selectedRound
+      ? t("current.editingRound")
+      : t("current.liveRoundStatus");
+  const prevKey = selectedRound
+    ? selectedIndex > 0
+      ? rounds[selectedIndex - 1].id
+      : null
+    : rounds.length
+      ? rounds[rounds.length - 1].id
+      : null;
+  const nextKey = selectedRound
+    ? selectedIndex < rounds.length - 1
+      ? rounds[selectedIndex + 1].id
+      : game?.isFinished
+        ? null
+        : "new"
+    : game?.isFinished
+      ? null
+      : "new";
+
+  return {
+    key,
+    selectedRound,
+    selectedIndex,
+    isLive,
+    label,
+    status,
+    prevKey,
+    nextKey,
+    canGoPrev: Boolean(prevKey),
+    canGoNext: Boolean(nextKey) && (Boolean(selectedRound) || isRoundDraftChanged(game))
+  };
+}
+
+async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
+  const game = state.data.currentGame;
+  if (!game || game.isFinished) {
+    return;
+  }
+
+  const selectedRound = getSelectedRound(game);
+
+  if (!force && !isRoundDraftChanged(game)) {
+    if (nextRoundKey) {
+      loadRoundDraft(game, nextRoundKey);
+      render();
+      if (isRoundDraftEditable(game)) {
+        focusCurrentScoreInput();
+      }
+    }
+    return;
+  }
+
+  const snapshot = snapshotAppState();
+  const requestPayload = getRoundDraftPayload(game);
+  const optimisticRound = {
+    id: selectedRound?.id || crypto.randomUUID(),
+    createdAt: selectedRound?.createdAt || now(),
+    note: requestPayload.note,
+    scores: requestPayload.scores
+  };
+  const optimisticGame = selectedRound
+    ? {
+        ...game,
+        updatedAt: now(),
+        completedAt: null,
+        rounds: game.rounds.map((round) => (round.id === optimisticRound.id ? optimisticRound : round))
+      }
+    : {
+        ...game,
+        updatedAt: now(),
+        completedAt: null,
+        rounds: [...game.rounds, optimisticRound]
+      };
+  const decoratedOptimistic = decorateGame(optimisticGame);
+  const optimisticNextKey =
+    nextRoundKey === "new" && decoratedOptimistic.isFinished
+      ? decoratedOptimistic.winningRoundId || nextRoundKey
+      : nextRoundKey;
+
+  state.data.currentGame = decoratedOptimistic;
+  if (nextRoundKey === "new" && !decoratedOptimistic.isFinished) {
+    resetLiveRoundDraft(decoratedOptimistic);
+  }
+  loadRoundDraft(decoratedOptimistic, optimisticNextKey);
+  state.route = "current-game";
+  window.location.hash = "current-game";
+  render();
+
+  try {
+    const payload = await api(selectedRound ? `/api/rounds/${encodeURIComponent(selectedRound.id)}` : "/api/rounds", {
+      method: selectedRound ? "PATCH" : "POST",
+      body: JSON.stringify(requestPayload)
+    });
+
+    if (payload.game) {
+      state.data.currentGame = payload.game;
+      const responseNextKey =
+        nextRoundKey === "new" && payload.game.isFinished
+          ? payload.game.winningRoundId || nextRoundKey
+          : nextRoundKey;
+      if (nextRoundKey === "new" && !payload.game.isFinished) {
+        resetLiveRoundDraft(payload.game);
+      }
+      loadRoundDraft(payload.game, responseNextKey);
+    }
+
+    if (payload.game?.isFinished) {
+      showCelebration(getWinner(payload.game));
+      showToast(t("toast.gameFinished"));
+    } else {
+      showToast(t("toast.roundSaved"));
+    }
+
+    render();
+
+    if (isRoundDraftEditable(state.data.currentGame)) {
+      focusCurrentScoreInput();
+    }
+  } catch (error) {
+    restoreAppState(snapshot);
+    hideCelebration();
+    showToast(error.message, true);
+    render();
+  }
+}
+
+async function navigateToRound(roundKey) {
+  const game = state.data.currentGame;
+  if (!game || !roundKey || roundKey === getRoundDraftKey()) {
+    return;
+  }
+
+  if (isRoundDraftEditable(game) && isRoundDraftChanged(game)) {
+    await commitRoundDraft(roundKey);
+    return;
+  }
+
+  if (roundKey === "new" && !game.isFinished) {
+    resetLiveRoundDraft(game);
+  }
+
+  loadRoundDraft(game, roundKey);
+  render();
+
+  if (isRoundDraftEditable(state.data.currentGame)) {
+    focusCurrentScoreInput();
+  }
 }
 
 function syncRouteFromHash() {
-  state.route = getRouteFromHash();
+  const nextRoute = getRouteFromHash();
+  if (nextRoute === state.route) {
+    return;
+  }
+
+  state.route = nextRoute;
   render();
 }
 
@@ -762,7 +1513,8 @@ function renderShellText() {
   const drawerLinks = elements.drawer.querySelectorAll("[data-route]");
   drawerLinks.forEach((button) => {
     const route = button.dataset.route;
-    if (route === "home") button.textContent = t("nav.home");
+    if (route === "new-game") button.textContent = t("nav.playNewGame");
+    if (route === "existing-games") button.textContent = t("nav.browseGames");
     if (route === "current-game") button.textContent = t("nav.currentGame");
     if (route === "stats") button.textContent = t("nav.stats");
     if (route === "settings") button.textContent = t("nav.settings");
@@ -774,16 +1526,19 @@ function renderHomeScreen() {
   const recentGames = [currentGame, ...state.data.history]
     .filter(Boolean)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  const hasExistingGame = recentGames.length > 0;
+  const hiddenRecentGameIds = new Set(state.settings.hiddenRecentGameIds || []);
+  const visibleRecentGames = recentGames.filter(
+    (game) => !hiddenRecentGameIds.has(game.id) || Boolean(currentGame && currentGame.id === game.id)
+  );
 
   const mobileRecentGames =
-    recentGames.length === 0
+    visibleRecentGames.length === 0
       ? ""
       : `
         <section class="stack home-history-section">
           <p class="eyebrow">${escapeHtml(t("home.recentGames"))}</p>
           <div class="home-history-list">
-            ${recentGames
+            ${visibleRecentGames
               .map((game) => {
                 const modeLabel = game.gameMode ? gameModeLabel(game.gameMode) : "";
                 const canDelete = !(currentGame && currentGame.id === game.id);
@@ -791,6 +1546,7 @@ function renderHomeScreen() {
                   <div
                     class="home-history-item-shell"
                     data-swipe-delete-card
+                    data-swipe-mode="recent"
                     data-game-card="${escapeHtml(game.id)}"
                     data-home-current="${String(!canDelete)}"
                   >
@@ -813,14 +1569,14 @@ function renderHomeScreen() {
                     ${
                       canDelete
                         ? `<div class="home-history-actions" aria-hidden="true">
-                            <button
+                          <button
                               class="home-history-delete"
                               type="button"
-                              data-action="delete-home-game"
+                              data-action="remove-home-game"
                               data-game-id="${escapeHtml(game.id)}"
-                              aria-label="${escapeHtml(t("common.delete"))}"
+                              aria-label="${escapeHtml(t("home.removeRecent"))}"
                             >
-                              ${escapeHtml(t("common.delete"))}
+                              ${escapeHtml(t("home.removeRecent"))}
                             </button>
                           </div>`
                         : ""
@@ -842,13 +1598,6 @@ function renderHomeScreen() {
         <button class="primary-action" type="button" data-action="go-new-game">${escapeHtml(
           t("home.startFresh")
         )}</button>
-        ${
-          hasExistingGame
-            ? `<button class="secondary-action home-secondary-action" type="button" data-action="go-existing-games">${escapeHtml(
-                t("home.selectExisting")
-              )}</button>`
-            : ""
-        }
       </div>
       <p class="home-credits plain-copy">
         Vibbed in Sibbarp by
@@ -967,25 +1716,17 @@ function renderNewGameScreen() {
         </label>
         <div class="field">
           <span class="field-label">${escapeHtml(t("newGame.modeLabel"))}</span>
-          <div class="new-game-mode-toggle" role="radiogroup" aria-label="${escapeHtml(
-            t("newGame.modeLabel")
-          )}">
+          <select id="new-game-mode" name="gameMode">
             ${["classic", "vengeance", "mixed"]
               .map(
                 (mode) => `
-                  <button
-                    type="button"
-                    class="mode-option${draft.gameMode === mode ? " is-active" : ""}"
-                    data-action="set-new-game-mode"
-                    data-mode="${escapeHtml(mode)}"
-                    aria-pressed="${draft.gameMode === mode ? "true" : "false"}"
-                  >
+                  <option value="${escapeHtml(mode)}"${draft.gameMode === mode ? " selected" : ""}>
                     ${escapeHtml(gameModeLabel(mode))}
-                  </button>
+                  </option>
                 `
               )
               .join("")}
-          </div>
+          </select>
         </div>
         <label class="field">
           <span class="field-label">${escapeHtml(t("newGame.winningScoreLabel"))}</span>
@@ -1019,6 +1760,9 @@ function renderGameCard(game, { current = false } = {}) {
       : t("statuses.archived");
   const scoreSummary = summarizeGame(game);
   const leader = scoreSummary[0];
+  const winner = getWinner(game);
+  const headline = isFinished && winner ? winner : leader;
+  const headlineLabel = isFinished ? t("stats.winner") : t("stats.leader");
   const statusPillClass = isFinished ? "pill-success" : current ? "" : "pill-muted";
   const menuAction = current ? "archive" : "delete";
   const menuLabel = current ? t("existing.archiveCard") : t("existing.deleteCard");
@@ -1029,6 +1773,7 @@ function renderGameCard(game, { current = false } = {}) {
       <div
         class="home-history-item-shell game-list-item-shell"
         data-swipe-delete-card
+        data-swipe-mode="stash"
         data-game-card="${escapeHtml(game.id)}"
       >
         <button
@@ -1051,9 +1796,9 @@ function renderGameCard(game, { current = false } = {}) {
             <div class="home-history-meta game-list-submeta">
               <span class="pill ${statusPillClass}">${escapeHtml(status)}</span>
               ${
-                leader
-                  ? `<span>${escapeHtml(t("stats.leader"))}: ${escapeHtml(leader.name)} ${formatNumber(
-                      leader.total
+                headline
+                  ? `<span class="game-card-leader">${escapeHtml(headlineLabel)}: ${escapeHtml(headline.name)} ${formatNumber(
+                      headline.total
                     )} ${escapeHtml(t("common.points"))}</span>`
                   : ""
               }
@@ -1065,7 +1810,7 @@ function renderGameCard(game, { current = false } = {}) {
           <button
             class="home-history-delete"
             type="button"
-            data-action="delete-home-game"
+            data-action="delete-game"
             data-game-id="${escapeHtml(game.id)}"
             aria-label="${escapeHtml(t("common.delete"))}"
           >
@@ -1102,9 +1847,9 @@ function renderGameCard(game, { current = false } = {}) {
       <div class="game-card-meta">
         <span class="pill ${statusPillClass}">${escapeHtml(status)}</span>
         ${
-          leader
-            ? `<span>${escapeHtml(t("stats.leader"))}: ${escapeHtml(leader.name)} ${formatNumber(
-                leader.total
+          headline
+            ? `<span>${escapeHtml(headlineLabel)}: ${escapeHtml(headline.name)} ${formatNumber(
+                headline.total
               )} ${escapeHtml(t("common.points"))}</span>`
             : ""
         }
@@ -1163,196 +1908,372 @@ function renderExistingGamesScreen() {
 }
 
 function renderCurrentGameScreen() {
+  const screen = elements.screens.currentGame;
   const game = state.data.currentGame;
-  const hasSavedGames = state.data.history.length > 0;
+  if (!screen) {
+    return;
+  }
 
   if (!game) {
-    return `
+    clearFinishedRoundNoteAutosave();
+    screen.removeAttribute("data-current-game-id");
+    screen.removeAttribute("data-current-game-editor-key");
+    screen.removeAttribute("data-current-game-details-key");
+    screen.innerHTML = `
       <section class="stack current-game-view">
         <p class="eyebrow">${escapeHtml(t("current.eyebrow"))}</p>
         <h1 class="screen-title">${escapeHtml(t("current.title"))}</h1>
         <p class="helper plain-copy">${escapeHtml(t("current.noGame"))}</p>
         <div class="hero-actions">
           <button class="primary-action" type="button" data-action="go-new-game">${escapeHtml(t("current.newGame"))}</button>
-          ${
-            hasSavedGames
-              ? `<button class="secondary-action" type="button" data-action="go-existing-games">${escapeHtml(
-                  t("home.selectExisting")
-                )}</button>`
-              : ""
-          }
         </div>
       </section>
     `;
+    return;
   }
 
   ensureRoundDraft(game);
-  const leaderboard = summarizeGame(game);
-  const winner = getWinner(game);
-  const roundNumber = game.rounds.length + 1;
+  const progress = getGameProgress(game);
+  const winner = progress.winner;
+  const roundNavigator = getRoundNavigatorState(game);
   const orderedPlayers = getCurrentGamePlayers(game);
-  const compactMeta = [
-    t("current.roundNumber", { count: roundNumber }),
-    `${t("current.winningScore")} ${formatNumber(game.winningScore)}`,
-    `${game.players.length} ${pluralLabel(game.players.length, t("common.player"), t("common.players"))}`
-  ];
-  if (winner) {
-    compactMeta.push(`${t("current.winnerLabel")}: ${winner.name}`);
-  }
+  const canEditScores = isRoundDraftEditable(game);
+  const canEditNote = Boolean(canEditScores || game.isFinished);
+  const currentRoundKey = getRoundDraftKey();
+  const invalidRoundIds = new Set(progress.invalidRoundIds);
+  const selectedRound = getSelectedRound(game);
+  const draftForSelectedRound =
+    state.draft.roundDrafts[currentRoundKey] || createRoundDraftFromRound(game, selectedRound);
+  const roundNoteLabel = game.isFinished ? t("current.finalNote") : t("current.roundNote");
+  const scoresSignature = orderedPlayers
+    .map((player) => `${player.id}:${draftForSelectedRound.roundScores[player.id] ?? ""}`)
+    .join("|");
+  const editorKey = [
+    game.id,
+    currentRoundKey,
+    currentRoundKey === "new" ? `live:${state.draft.liveRoundVersion}` : "saved",
+    state.draft.currentGameOrder,
+    canEditScores ? "edit" : "locked",
+    scoresSignature
+  ].join("::");
+  const detailsKey = [
+    game.id,
+    currentRoundKey,
+    roundNoteLabel,
+    draftForSelectedRound.roundNote,
+    canEditNote ? "note-editable" : "note-locked",
+    game.isFinished ? `winner:${winner?.roundId || "none"}` : "live",
+    progress.invalidRoundIds.join(","),
+    progress.winningRoundId || "none",
+    progress.winningRoundNumber || 0,
+    game.rounds.length,
+    game.updatedAt
+  ].join("::");
+  const headerKey = [
+    game.id,
+    game.title,
+    game.winningScore,
+    game.players.length,
+    roundNavigator.label,
+    roundNavigator.status,
+    winner?.name || "",
+    currentRoundKey
+  ].join("::");
+  const warningKey = `${game.id}:${progress.invalidRoundIds.join(",")}:${progress.winningRoundNumber || 0}`;
+  const secondaryKey = `${game.id}:${game.isFinished ? "finished" : "live"}`;
 
-  return `
-    <section class="stack current-game-view">
-      <div class="stack-tight current-game-header">
-        <p class="eyebrow">${escapeHtml(t("current.eyebrow"))}</p>
-        <h1 class="screen-title">${escapeHtml(game.title)}</h1>
-        <div class="current-meta-line">
-          ${compactMeta.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+  const renderRoundHistory = () => {
+    const roundHistory = game.rounds
+      .map((round, index) => {
+        const isSelected = currentRoundKey === round.id;
+        const isInvalid = invalidRoundIds.has(round.id);
+        const isWinningRound = progress.winningRoundId === round.id;
+        const roundTotal = round.scores.reduce((sum, score) => sum + score.points, 0);
+        const note = round.note.trim() ? round.note.trim() : t("current.noNote");
+        const status = isWinningRound
+          ? t("current.winningRound")
+          : isInvalid
+            ? t("current.invalidRound")
+            : isSelected
+              ? t("current.editingRound")
+              : "";
+
+        return `
+          <button
+            class="round-history-item ${isSelected ? "is-selected" : ""} ${isInvalid ? "is-invalid" : ""}"
+            type="button"
+            data-action="select-round"
+            data-round-key="${escapeHtml(round.id)}"
+          >
+            <div class="round-history-main">
+              <strong>${escapeHtml(t("current.roundCounter", { current: index + 1, total: game.rounds.length }))}</strong>
+              <span>${escapeHtml(note)}</span>
+            </div>
+            <div class="round-history-meta">
+              <span>${formatNumber(roundTotal)} ${escapeHtml(t("common.points"))}</span>
+              ${
+                status
+                  ? `<span class="pill ${isInvalid ? "pill-muted" : "pill-success"}">${escapeHtml(status)}</span>`
+                  : ""
+              }
+            </div>
+          </button>
+        `;
+      })
+      .join("");
+
+    const liveRoundItem = game.isFinished
+      ? ""
+      : `
+        <button
+          class="round-history-item ${roundNavigator.isLive ? "is-selected" : ""}"
+          type="button"
+          data-action="select-round"
+          data-round-key="new"
+        >
+          <div class="round-history-main">
+            <strong>${escapeHtml(t("current.roundNumber", { count: game.rounds.length + 1 }))}</strong>
+            <span>${escapeHtml(t("current.liveRoundStatus"))}</span>
+          </div>
+          <div class="round-history-meta">
+            <span>${escapeHtml(t("current.roundScores"))}</span>
+          </div>
+        </button>
+      `;
+
+    return `
+      <div class="stack-tight">
+        <strong>${escapeHtml(t("current.roundHistory"))}</strong>
+        <div class="round-history-list">
+          ${roundHistory}
+          ${liveRoundItem}
         </div>
       </div>
-      <form id="current-game-form" class="stack current-score-form">
-        <div class="stack-tight">
-          <div class="current-score-header">
-            <strong>${escapeHtml(t("current.roundScores"))}</strong>
-            <div class="current-order-toggle" role="group" aria-label="${escapeHtml(t("current.orderBy"))}">
-              <button
-                class="${state.draft.currentGameOrder === "entered" ? "primary-action" : "secondary-action"}"
-                type="button"
-                data-action="set-current-order"
-                data-order="entered"
-              >
-                ${escapeHtml(t("current.enteredOrder"))}
-              </button>
-              <button
-                class="${state.draft.currentGameOrder === "leader" ? "primary-action" : "secondary-action"}"
-                type="button"
-                data-action="set-current-order"
-                data-order="leader"
-              >
-                ${escapeHtml(t("current.leaderFirst"))}
-              </button>
-            </div>
-          </div>
-        <div class="score-list">
-            ${orderedPlayers
-              .map((player, index) => {
-                const total = leaderboard.find((entry) => entry.playerId === player.id)?.total ?? 0;
-                const value = state.draft.roundScores[player.id] ?? "";
-                const nextHint = index < orderedPlayers.length - 1 ? "next" : "done";
-                return `
-                  <div class="score-row">
-                    <label class="field">
-                      <span class="player-name">${escapeHtml(player.name)}</span>
-                      <span class="muted">${formatNumber(total)} ${escapeHtml(t("common.points"))}</span>
-                    </label>
-                    <input
-                      type="text"
-                      step="1"
-                      inputmode="numeric"
-                      enterkeyhint="${nextHint}"
-                      pattern="[0-9]*"
-                      autocomplete="off"
-                      data-player-id="${escapeHtml(player.id)}"
-                      data-player-index="${index}"
-                      value="${escapeHtml(value)}"
-                      ${winner ? "disabled" : ""}
-                    />
-                  </div>
-                `;
-              })
-              .join("")}
-          </div>
-        </div>
-        <div class="sticky-actions">
-          ${
-            winner
-              ? `<button class="primary-action" type="button" data-action="play-again">${escapeHtml(
-                  t("current.playAgain")
-                )}</button>`
-              : `<button class="primary-action" type="submit">${escapeHtml(t("current.saveRound"))}</button>`
-          }
-        </div>
-      </form>
-      <details class="current-details">
-        <summary>
-          <span>${escapeHtml(t("current.gameDetails"))}</span>
-          <span class="current-details-caret" aria-hidden="true">⌄</span>
-        </summary>
-        <div class="stack current-details-body">
-          <label class="field current-details-note">
-            <span class="field-label">${escapeHtml(t("current.roundNote"))}</span>
-            <textarea id="round-note" class="round-note" placeholder="${escapeHtml(
-              t("current.roundNote")
-            )}">${escapeHtml(state.draft.roundNote)}</textarea>
-          </label>
-          <div class="top-summary-grid current-summary-grid">
-            <div class="summary-block">
-              <small class="muted">${escapeHtml(t("existing.roundsLabel", { count: game.rounds.length }))}</small>
-              <strong>${formatNumber(game.rounds.length)}</strong>
-            </div>
-            <div class="summary-block">
-              <small class="muted">${escapeHtml(t("existing.playersLabel", { count: game.players.length }))}</small>
-              <strong>${formatNumber(game.players.length)}</strong>
-            </div>
-            <div class="summary-block">
-              <small class="muted">${escapeHtml(t("current.winningScore"))}</small>
-              <strong>${formatNumber(game.winningScore)}</strong>
-            </div>
-            <div class="summary-block">
-              <small class="muted">${escapeHtml(t("current.roundNumber", { count: roundNumber }))}</small>
-              <strong>${formatNumber(roundNumber)}</strong>
-            </div>
-          </div>
-          <div class="state-banner">
-            <strong>${escapeHtml(gameModeLabel(game.gameMode))}</strong>
-            <span class="muted">${escapeHtml(
-              winner ? `${t("current.finishedTitle")}: ${winner.name}` : t("current.lead")
-            )}</span>
-          </div>
-          ${
-            winner
-              ? `
-                <div class="state-banner">
-                  <p class="eyebrow">${escapeHtml(t("current.winnerLabel"))}</p>
-                  <strong>${escapeHtml(winner.name)}</strong>
-                  <span>${formatNumber(winner.total)} ${escapeHtml(t("common.players"))}</span>
-                  <span class="muted">${escapeHtml(t("current.finishedLead"))}</span>
-                </div>
-              `
-              : ""
-          }
-          <div class="stack-tight">
-            <strong>${escapeHtml(t("current.leaderboardLabel"))}</strong>
-            <div class="stats-list">
-              ${leaderboard
-                .map(
-                  (entry) => `
-                    <div class="summary-block">
-                      <div class="game-card-header">
-                        <strong>${escapeHtml(game.players.find((player) => player.id === entry.playerId)?.name || entry.playerId)}</strong>
-                        <span>${formatNumber(entry.total)}</span>
-                      </div>
-                    </div>
-                  `
-                )
-                .join("")}
-            </div>
-          </div>
-        </div>
-      </details>
-      <div class="current-secondary-actions">
-        <button class="secondary-action" type="button" data-action="archive-current">${escapeHtml(
-          t("current.archiveGame")
-        )}</button>
-        <button class="secondary-action" type="button" data-action="go-new-game">${escapeHtml(t("current.newGame"))}</button>
-      </div>
+    `;
+  };
+
+  const currentShellHtml = `
+    <section class="stack current-game-view" data-current-game-shell>
+      <div data-current-game-slot="header"></div>
+      <div data-current-game-slot="warning"></div>
+      <div data-current-game-slot="editor"></div>
+      <div data-current-game-slot="details"></div>
+      <div data-current-game-slot="secondary"></div>
     </section>
   `;
+
+  const headerHtml = () => `
+    <div class="stack-tight current-game-header">
+      <p class="eyebrow">${escapeHtml(t("current.eyebrow"))}</p>
+      <h1 class="screen-title">${escapeHtml(game.title)}</h1>
+      <div class="current-meta-line">
+        <span>${escapeHtml(t("current.winningScore"))} ${formatNumber(game.winningScore)}</span>
+        <span>${escapeHtml(`${game.players.length} ${pluralLabel(game.players.length, t("common.player"), t("common.players"))}`)}</span>
+      </div>
+      ${winner ? `<div class="current-winner-line"><span>${escapeHtml(t("current.winnerLabel"))}:</span><strong>${escapeHtml(winner.name)}</strong></div>` : ""}
+      <div class="current-round-nav" role="group" aria-label="${escapeHtml(t("current.roundNavigation"))}">
+        <button
+          class="round-nav-button"
+          type="button"
+          data-action="move-round"
+          data-direction="prev"
+          ${roundNavigator.canGoPrev ? "" : "disabled"}
+          aria-label="${escapeHtml(t("current.previousRound"))}"
+        >
+          ←
+        </button>
+        <div class="current-round-nav-copy">
+          <strong>${escapeHtml(roundNavigator.label)}</strong>
+          <span>${escapeHtml(roundNavigator.status)}</span>
+        </div>
+        <button
+          class="round-nav-button"
+          type="button"
+          data-action="move-round"
+          data-direction="next"
+          ${roundNavigator.canGoNext ? "" : "disabled"}
+          aria-label="${escapeHtml(t("current.nextRound"))}"
+        >
+          →
+        </button>
+      </div>
+    </div>
+  `;
+
+  const roundWarningHtml = () =>
+    progress.invalidRoundIds.length
+    ? `
+      <div class="state-banner state-banner-warning">
+        <strong>${escapeHtml(t("current.shouldHaveEndedAtRound", { count: progress.winningRoundNumber || 0 }))}</strong>
+        <span class="muted">${escapeHtml(t("current.invalidRoundsNote"))}</span>
+      </div>
+    `
+    : "";
+
+  const editorHtml = () => `
+    <form id="current-game-form" class="stack current-score-form">
+      <div class="stack-tight">
+        <div class="current-score-header">
+          <strong>${escapeHtml(t("current.roundScores"))}</strong>
+          <div class="current-order-toggle" role="group" aria-label="${escapeHtml(t("current.orderBy"))}">
+            <button
+              class="${state.draft.currentGameOrder === "entered" ? "primary-action" : "secondary-action"}"
+              type="button"
+              data-action="set-current-order"
+              data-order="entered"
+              ${canEditScores ? "" : "disabled"}
+            >
+              ${escapeHtml(t("current.enteredOrder"))}
+            </button>
+            <button
+              class="${state.draft.currentGameOrder === "leader" ? "primary-action" : "secondary-action"}"
+              type="button"
+              data-action="set-current-order"
+              data-order="leader"
+              ${canEditScores ? "" : "disabled"}
+            >
+              ${escapeHtml(t("current.leaderFirst"))}
+            </button>
+          </div>
+        </div>
+        <div class="score-list">
+          ${orderedPlayers
+            .map((player, index) => {
+              const total = progress.scoreboard.find((entry) => entry.playerId === player.id)?.total ?? 0;
+              const value = draftForSelectedRound.roundScores[player.id] ?? "";
+              return `
+                <div class="score-row">
+                  <label class="field">
+                    <span class="player-name">${escapeHtml(player.name)}</span>
+                    <span class="muted">${formatNumber(total)} ${escapeHtml(t("common.points"))}</span>
+                  </label>
+                  <input
+                    type="text"
+                    step="1"
+                    inputmode="numeric"
+                    enterkeyhint="next"
+                    pattern="[0-9]*"
+                    autocomplete="off"
+                    data-player-id="${escapeHtml(player.id)}"
+                    data-player-index="${index}"
+                    value="${escapeHtml(value)}"
+                    ${canEditScores ? "" : "disabled"}
+                  />
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      </div>
+      <div class="sticky-actions">
+        ${
+          winner
+            ? `<button class="primary-action" type="button" data-action="play-again">${escapeHtml(
+                t("current.playAgain")
+              )}</button>`
+            : `<button class="primary-action" type="submit">${escapeHtml(
+                roundNavigator.isLive ? t("current.saveRound") : t("current.backToLive")
+              )}</button>`
+        }
+      </div>
+    </form>
+  `;
+
+  const noteHtml = () => `
+    <label class="field current-details-note">
+      <span class="field-label">${escapeHtml(roundNoteLabel)}</span>
+      <textarea
+        id="round-note"
+        class="round-note"
+        placeholder="${escapeHtml(roundNoteLabel)}"
+        ${canEditNote ? "" : "disabled"}
+      >${escapeHtml(draftForSelectedRound.roundNote)}</textarea>
+    </label>
+  `;
+
+  const statusBannerHtml = () => `
+    <div class="state-banner">
+      <strong>${escapeHtml(gameModeLabel(game.gameMode))}</strong>
+      <span class="muted">${escapeHtml(
+        winner ? `${t("current.finishedTitle")}: ${winner.name}` : t("current.lead")
+      )}</span>
+    </div>
+  `;
+
+  const winnerBannerHtml = () =>
+    winner
+      ? `
+      <div class="state-banner">
+        <p class="eyebrow">${escapeHtml(t("current.winnerLabel"))}</p>
+        <strong>${escapeHtml(winner.name)}</strong>
+        <span>${formatNumber(winner.total)} ${escapeHtml(t("common.points"))}</span>
+        <span class="muted">${escapeHtml(t("current.finishedLead"))}</span>
+      </div>
+    `
+      : "";
+
+  const detailsHtml = () => `
+    <details class="current-details">
+      <summary>
+        <span>${escapeHtml(t("current.gameDetails"))}</span>
+        <span class="current-details-caret" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="stack current-details-body">
+        ${statusBannerHtml()}
+        ${winnerBannerHtml()}
+        ${noteHtml()}
+        ${renderRoundHistory()}
+      </div>
+    </details>
+  `;
+
+  const secondaryHtml = () => `
+    <div class="current-secondary-actions">
+      <button class="secondary-action" type="button" data-action="archive-current">${escapeHtml(
+        t("current.archiveGame")
+      )}</button>
+    </div>
+  `;
+
+  if (
+    screen.dataset.currentGameId !== game.id ||
+    !screen.querySelector("[data-current-game-shell]") ||
+    !screen.querySelector('[data-current-game-slot="details"]')
+  ) {
+    screen.innerHTML = currentShellHtml;
+    screen.dataset.currentGameId = game.id;
+    screen.dataset.currentGameEditorKey = "";
+    screen.dataset.currentGameDetailsKey = "";
+  }
+
+  const setSlot = (slotName, htmlOrFactory, key, datasetKey) => {
+    const slot = screen.querySelector(`[data-current-game-slot="${slotName}"]`);
+    if (!slot) {
+      return;
+    }
+
+    if (datasetKey && slot.dataset[datasetKey] === key) {
+      return;
+    }
+
+    const html = typeof htmlOrFactory === "function" ? htmlOrFactory() : htmlOrFactory;
+    slot.innerHTML = html;
+    if (datasetKey) {
+      slot.dataset[datasetKey] = key;
+    }
+  };
+
+  setSlot("header", headerHtml, headerKey, "renderKey");
+  setSlot("warning", roundWarningHtml, warningKey, "renderKey");
+  setSlot("editor", editorHtml, editorKey, "renderKey");
+  setSlot("details", detailsHtml, detailsKey, "renderKey");
+  setSlot("secondary", secondaryHtml, secondaryKey, "renderKey");
 }
 
 function renderStatsScreen() {
-  const game = getActiveStatsGame();
+  const scopeState = getStatsScopeState();
 
-  if (!game) {
+  if (!scopeState.game && scopeState.mode !== "all") {
     return `
       <section class="stack stats-view">
         <p class="eyebrow">${escapeHtml(t("stats.eyebrow"))}</p>
@@ -1362,26 +2283,45 @@ function renderStatsScreen() {
     `;
   }
 
-  const stats = buildGameStats(game);
-  const roundSummaries = stats.rounds.map((round, index) => {
-    const roundTotal = stats.roundTotals[index];
-    return `
-      <article class="round-card">
-        <div class="game-card-header">
-          <strong>${escapeHtml(t("current.roundNumber", { count: index + 1 }))}</strong>
-          <span class="pill">${escapeHtml(t("stats.roundTotal"))}: ${formatNumber(roundTotal)}</span>
-        </div>
-        <div class="game-card-meta">
-          ${round.scores
-            .map((score) => {
-              const playerName = game.players.find((player) => player.id === score.playerId)?.name || score.playerId;
-              return `${escapeHtml(playerName)}: ${formatNumber(score.points)}`;
-            })
-            .join(" • ")}
-        </div>
-      </article>
+  const game = scopeState.game;
+  const isAggregate = scopeState.mode === "all";
+  const stats = isAggregate ? buildAllGamesStats(scopeState.games) : buildGameStats(game);
+  const roundSummaries =
+    !isAggregate && game
+      ? stats.rounds.map((round, index) => {
+          const roundTotal = stats.roundTotals[index];
+          return `
+            <article class="round-card">
+              <div class="game-card-header">
+                <strong>${escapeHtml(t("current.roundNumber", { count: index + 1 }))}</strong>
+                <span class="pill">${escapeHtml(t("stats.roundTotal"))}: ${formatNumber(roundTotal)}</span>
+              </div>
+              <div class="game-card-meta">
+                ${round.scores
+                  .map((score) => {
+                    const playerName = game.players.find((player) => player.id === score.playerId)?.name || score.playerId;
+                    return `<span>${escapeHtml(playerName)}: ${formatNumber(score.points)}</span>`;
+                  })
+                  .join(" • ")}
+              </div>
+            </article>
+          `;
+        })
+      : [];
+
+  const availableGames = scopeState.games;
+  const showScopePicker = availableGames.length > 1;
+  const selectedStatsGameId = scopeState.game?.id || state.draft.statsGameId || "";
+  const scopeOptions = availableGames.some((game) => game === state.data.currentGame)
+    ? `
+      <option value="current"${scopeState.mode === "current" ? " selected" : ""}>${escapeHtml(t("current.title"))}</option>
+      <option value="all"${scopeState.mode === "all" ? " selected" : ""}>${escapeHtml(t("stats.allGames"))}</option>
+      <option value="pick"${scopeState.mode === "pick" ? " selected" : ""}>${escapeHtml(t("stats.pickGame"))}</option>
+    `
+    : `
+      <option value="all"${scopeState.mode === "all" ? " selected" : ""}>${escapeHtml(t("stats.allGames"))}</option>
+      <option value="pick"${scopeState.mode === "pick" ? " selected" : ""}>${escapeHtml(t("stats.pickGame"))}</option>
     `;
-  });
 
   return `
     <section class="stack stats-view">
@@ -1390,10 +2330,46 @@ function renderStatsScreen() {
         <h1 class="screen-title">${escapeHtml(t("stats.title"))}</h1>
         <p class="screen-lead">${escapeHtml(t("stats.lead"))}</p>
       </div>
+      ${
+        showScopePicker
+          ? `
+            <div class="stack-tight stats-scope">
+              <label class="field">
+                <span class="field-label">${escapeHtml(t("stats.scopeLabel"))}</span>
+                <select id="stats-scope">
+                  ${scopeOptions}
+                </select>
+              </label>
+              ${
+                scopeState.mode === "pick"
+                  ? `
+                    <label class="field">
+                      <span class="field-label">${escapeHtml(t("stats.pickLabel"))}</span>
+                  <select id="stats-game-id">
+                        ${availableGames
+                          .map(
+                            (entry) => `
+                              <option value="${escapeHtml(entry.id)}"${entry.id === selectedStatsGameId ? " selected" : ""}>${escapeHtml(
+                                entry.title + (entry.isFinished ? ` (${t("statuses.finished")})` : "")
+                              )}</option>
+                            `
+                          )
+                          .join("")}
+                      </select>
+                    </label>
+                  `
+                  : ""
+              }
+            </div>
+          `
+          : ""
+      }
       <div class="top-summary-grid">
         <div class="summary-block">
-          <small class="muted">${escapeHtml(t("stats.leader"))}</small>
-          <strong>${escapeHtml(stats.leader?.name || "—")}</strong>
+          <small class="muted">${escapeHtml(isAggregate ? t("stats.totalGames") : t("stats.leader"))}</small>
+          <strong>${escapeHtml(
+            isAggregate ? formatNumber(stats.totalGames) : stats.leader?.name || "—"
+          )}</strong>
         </div>
         <div class="summary-block">
           <small class="muted">${escapeHtml(t("stats.highestSingleScore"))}</small>
@@ -1420,12 +2396,12 @@ function renderStatsScreen() {
           <strong>${formatNumber(stats.lowestRoundTotal)}</strong>
         </div>
         <div class="summary-block">
-          <small class="muted">${escapeHtml(t("current.winningScore"))}</small>
-          <strong>${formatNumber(game.winningScore)}</strong>
+          <small class="muted">${escapeHtml(isAggregate ? t("stats.averageRoundsPerGame") : t("current.winningScore"))}</small>
+          <strong>${formatNumber(Math.round(isAggregate ? stats.averageRoundsPerGame : game.winningScore))}</strong>
         </div>
       </div>
       ${
-        stats.winner
+        !isAggregate && stats.winner
           ? `
             <div class="state-banner">
               <p class="eyebrow">${escapeHtml(t("stats.winner"))}</p>
@@ -1435,27 +2411,57 @@ function renderStatsScreen() {
           `
           : ""
       }
-      <div class="stack-tight">
-        <strong>${escapeHtml(t("stats.perPlayerTotals"))}</strong>
-        <div class="stats-list">
-          ${stats.scoreboard
-            .map(
-              (entry) => `
-                <div class="summary-block">
-                  <div class="game-card-header">
-                    <strong>${escapeHtml(entry.name)}</strong>
-                    <span>${formatNumber(entry.total)}</span>
-                  </div>
-                </div>
-              `
-            )
-            .join("")}
-        </div>
-      </div>
-      <div class="stack-tight">
-        <strong>${escapeHtml(t("stats.roundHistory"))}</strong>
-        <div class="round-list">${roundSummaries.join("") || `<div class="empty-state">${escapeHtml(t("stats.noStats"))}</div>`}</div>
-      </div>
+      ${
+        !isAggregate
+          ? `
+            <div class="stack-tight">
+              <strong>${escapeHtml(t("stats.perPlayerTotals"))}</strong>
+              <div class="stats-list">
+                ${stats.scoreboard
+                  .map(
+                    (entry) => `
+                      <div class="summary-block">
+                        <div class="game-card-header">
+                          <strong>${escapeHtml(entry.name)}</strong>
+                          <span>${formatNumber(entry.total)}</span>
+                        </div>
+                      </div>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+            <div class="stack-tight">
+              <strong>${escapeHtml(t("stats.roundHistory"))}</strong>
+              <div class="round-list">${roundSummaries.join("") || `<div class="empty-state">${escapeHtml(t("stats.noStats"))}</div>`}</div>
+            </div>
+          `
+          : `
+            <div class="stack-tight">
+              <strong>${escapeHtml(t("stats.roundHistory"))}</strong>
+              <div class="round-list">
+                ${scopeState.games
+                  .map(
+                    (entry) => `
+                      <article class="round-card">
+                        <div class="game-card-header">
+                          <strong>${escapeHtml(entry.title)}</strong>
+                          <span class="pill">${escapeHtml(
+                            `${formatNumber(entry.rounds.length)} ${escapeHtml(t("stats.roundTotal"))}`
+                          )}</span>
+                        </div>
+                        <div class="game-card-meta">
+                          <span>${escapeHtml(t("existing.lastPlayed"))}: ${escapeHtml(formatDateTime(entry.updatedAt))}</span>
+                          <span>${escapeHtml(t("current.winningScore"))}: ${formatNumber(entry.winningScore)}</span>
+                        </div>
+                      </article>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+      }
     </section>
   `;
 }
@@ -1512,11 +2518,7 @@ function renderSettingsScreen() {
             )}</option>
           </select>
         </label>
-        <button class="button-secondary" type="button" data-action="reset-prefs">${escapeHtml(
-          t("settings.resetPrefs")
-        )}</button>
       </form>
-      <p class="footer-note plain-copy">${escapeHtml(t("settings.keepNote"))}</p>
     </section>
   `;
 }
@@ -1593,23 +2595,23 @@ function render() {
 
   renderChrome();
 
-  renderScreen("home", renderHomeScreen());
-  renderScreen("newGame", renderNewGameScreen());
-  renderScreen("existingGames", renderExistingGamesScreen());
-  renderScreen("currentGame", renderCurrentGameScreen());
-  renderScreen("stats", renderStatsScreen());
-  renderScreen("settings", renderSettingsScreen());
-
   const routeMap = {
-    home: "home",
-    "new-game": "newGame",
-    "existing-games": "existingGames",
-    "current-game": "currentGame",
-    stats: "stats",
-    settings: "settings"
+    home: { screenName: "home", render: renderHomeScreen },
+    "new-game": { screenName: "newGame", render: renderNewGameScreen },
+    "existing-games": { screenName: "existingGames", render: renderExistingGamesScreen },
+    "current-game": { screenName: "currentGame", render: renderCurrentGameScreen },
+    stats: { screenName: "stats", render: renderStatsScreen },
+    settings: { screenName: "settings", render: renderSettingsScreen }
   };
 
-  Object.entries(routeMap).forEach(([route, screenName]) => {
+  const activeRoute = routeMap[state.route] || routeMap.home;
+  if (state.route === "current-game") {
+    renderCurrentGameScreen();
+  } else {
+    renderScreen(activeRoute.screenName, activeRoute.render());
+  }
+
+  Object.entries(routeMap).forEach(([route, { screenName }]) => {
     const screen = elements.screens[screenName];
     screen.classList.toggle("hidden", state.route !== route);
   });
@@ -1617,7 +2619,7 @@ function render() {
   requestAnimationFrame(() => {
     if (state.route === "new-game") {
       document.querySelector("#new-player-input")?.focus();
-    } else if (state.route === "current-game") {
+    } else if (state.route === "current-game" && isRoundDraftEditable(state.data.currentGame)) {
       focusCurrentScoreInput();
     } else if (state.route === "settings") {
       document.querySelector("#settings-winning-score")?.focus();
@@ -1680,76 +2682,102 @@ function startCelebrationFireworks() {
 
   const { context, width, height } = surface;
   const particles = [];
-  const palette = ["#ff9d5c", "#ffd166", "#8ecae6", "#b8f2e6", "#f7b267"];
+  
+  // Bright, punchy neon colors for better screen pop
+  const palette = ["#FF1461", "#18FF92", "#5A87FF", "#FBF38C", "#FF44FF", "#00FFFF"];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const spawnBurst = (x, y) => {
-    const color = palette[Math.floor(Math.random() * palette.length)];
-    const count = reducedMotion ? 18 : 42;
+  const spawnBurst = (x, y, isBig = false) => {
+    const baseColor = palette[Math.floor(Math.random() * palette.length)];
+    // Scale down particles if reduced motion is enabled
+    const count = reducedMotion ? 15 : (isBig ? 60 : 35);
+
     for (let index = 0; index < count; index += 1) {
-      const angle = (Math.PI * 2 * index) / count + (Math.random() - 0.5) * 0.14;
-      const speed = 1.5 + Math.random() * 5.5;
+      const angle = Math.random() * Math.PI * 2;
+      // Vary the speed so the burst looks spherical instead of like a flat ring
+      const speed = Math.random() * (isBig ? 10 : 6) + 2;
+      
       particles.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1.2,
-        life: 64 + Math.random() * 16,
-        maxLife: 64 + Math.random() * 16,
-        color,
-        size: 1.6 + Math.random() * 2.8,
-        gravity: 0.06 + Math.random() * 0.02,
-        drag: 0.985
+        vy: Math.sin(angle) * speed,
+        // Mix in pure white sparks occasionally for brightness
+        color: Math.random() > 0.8 ? "#FFFFFF" : baseColor,
+        size: Math.random() * 2 + 1.5,
+        life: 1, // We'll fade this down to 0
+        decay: Math.random() * 0.015 + 0.015,
+        gravity: 0.12,
+        friction: 0.92 // Strong friction creates the initial "pop" then slow down
       });
     }
   };
 
-  const launchX = width * 0.5;
-  const launchY = height * 0.28;
-  const burstPoints = [
-    [launchX - width * 0.17, launchY + height * 0.05],
-    [launchX + width * 0.16, launchY + height * 0.02],
-    [launchX, launchY - height * 0.02]
-  ];
-
-  burstPoints.forEach(([x, y], index) => {
-    const timerId = window.setTimeout(() => spawnBurst(x, y), index * 180);
+  // 1. Schedule a sequence of randomized bursts
+  const burstCount = reducedMotion ? 3 : 6;
+  for (let index = 0; index < burstCount; index += 1) {
+    const timerId = window.setTimeout(() => {
+      // Keep bursts in the upper portion of the screen
+      const x = width * 0.15 + Math.random() * (width * 0.7);
+      const y = height * 0.1 + Math.random() * (height * 0.4);
+      spawnBurst(x, y, Math.random() > 0.7);
+    }, index * 250 + Math.random() * 150);
+    
     state.celebration.burstTimers.push(timerId);
-  });
+  }
+
+  // 2. Schedule a "Grand Finale" volley at the end
+  const finaleTimerId = window.setTimeout(() => {
+    if (!reducedMotion) {
+      spawnBurst(width * 0.3, height * 0.3, true);
+      spawnBurst(width * 0.7, height * 0.3, true);
+      spawnBurst(width * 0.5, height * 0.2, true);
+    }
+  }, burstCount * 250 + 200);
+  state.celebration.burstTimers.push(finaleTimerId);
+
+  // Fire off one immediate burst to start the show
+  spawnBurst(width * 0.5, height * 0.25, true);
 
   const draw = () => {
     context.clearRect(0, 0, width, height);
+    
+    // Makes overlapping colors bright and glowing
     context.globalCompositeOperation = "lighter";
-
-    particles.forEach((particle) => {
-      particle.life -= 1;
-      particle.vx *= particle.drag;
-      particle.vy = particle.vy * particle.drag + particle.gravity;
-      particle.x += particle.vx;
-      particle.y += particle.vy;
-    });
 
     for (let index = particles.length - 1; index >= 0; index -= 1) {
       const particle = particles[index];
+      
+      // Apply physics
+      particle.vx *= particle.friction;
+      particle.vy *= particle.friction;
+      particle.vy += particle.gravity;
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.life -= particle.decay;
+
       if (particle.life <= 0) {
         particles.splice(index, 1);
         continue;
       }
 
-      const alpha = Math.max(0, particle.life / particle.maxLife);
+      // Draw particle as a streak based on its velocity (motion blur effect)
       context.beginPath();
-      context.fillStyle = `${particle.color}${Math.round(alpha * 255)
-        .toString(16)
-        .padStart(2, "0")}`;
-      context.shadowBlur = 16;
-      context.shadowColor = particle.color;
-      context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-      context.fill();
+      context.moveTo(particle.x - particle.vx * 2.5, particle.y - particle.vy * 2.5);
+      context.lineTo(particle.x, particle.y);
+      
+      context.strokeStyle = particle.color;
+      context.lineWidth = particle.size;
+      context.lineCap = "round";
+      context.globalAlpha = Math.max(0, particle.life); // Fade out naturally
+      context.stroke();
     }
 
-    if (particles.length) {
-      state.celebration.rafId = window.requestAnimationFrame(draw);
-    }
+    // Reset alpha for the next frame
+    context.globalAlpha = 1;
+
+    // Keep animating until the global timeout in showCelebration() kills the RAF ID
+    state.celebration.rafId = window.requestAnimationFrame(draw);
   };
 
   state.celebration.rafId = window.requestAnimationFrame(draw);
@@ -1800,34 +2828,72 @@ function seedNewGameFromPlayers(players, game) {
 }
 
 async function startGame() {
+  clearFinishedRoundNoteAutosave();
   const players = [...state.draft.newGame.players];
   const title = state.draft.newGame.title.trim();
+  const gameMode = state.draft.newGame.gameMode;
 
   if (players.length < 2) {
     showToast(t("newGame.noPlayersYet"), true);
     return;
   }
 
+  const snapshot = snapshotAppState();
+
   try {
     const winningScore = Number(state.draft.newGame.winningScore);
-    await api("/api/game", {
+    const normalizedWinningScore =
+      Number.isFinite(winningScore) && winningScore > 0 ? winningScore : state.settings.defaultWinningScore;
+    const optimisticGame = makeNewGame({
+      title,
+      gameMode,
+      winningScore: normalizedWinningScore,
+      playerNames: players
+    });
+
+    state.data.history = appendCurrentGameToHistory(state.data.history, state.data.currentGame);
+    state.data.currentGame = optimisticGame;
+    resetNewGameDraft();
+    state.draft.currentRoundKey = "new";
+    state.draft.roundDrafts = {
+      new: {
+        roundNote: "",
+        roundScores: {}
+      }
+    };
+    ensureRoundDraft(state.data.currentGame);
+    state.route = "current-game";
+    window.location.hash = "current-game";
+    render();
+    focusCurrentScoreInput();
+
+    const payload = await api("/api/game", {
       method: "POST",
       body: JSON.stringify({
         title,
         players,
-        gameMode: state.draft.newGame.gameMode,
-        winningScore: Number.isFinite(winningScore) && winningScore > 0 ? winningScore : state.settings.defaultWinningScore
+        gameMode,
+        winningScore: normalizedWinningScore
       })
     });
 
-    resetNewGameDraft();
-    await refresh();
-    state.route = "current-game";
-    window.location.hash = "current-game";
+    if (payload.game) {
+      state.draft.roundScores = remapRoundScores(optimisticGame.players, payload.game.players || [], state.draft.roundScores);
+      state.data.currentGame = payload.game;
+      ensureRoundDraft(state.data.currentGame);
+    }
+
+    if (payload.history) {
+      state.data.history = payload.history;
+    }
+
     showToast(t("toast.gameStarted"));
     render();
+    focusCurrentScoreInput();
   } catch (error) {
+    restoreAppState(snapshot);
     showToast(error.message, true);
+    render();
   }
 }
 
@@ -1837,26 +2903,53 @@ async function playAgain() {
     return;
   }
 
+  clearFinishedRoundNoteAutosave();
+  const snapshot = snapshotAppState();
+
   try {
+    const optimisticGame = makeRestartedGame(game);
+
     hideCelebration();
+    state.data.history = appendCurrentGameToHistory(state.data.history, state.data.currentGame);
+    state.data.currentGame = optimisticGame;
+    state.draft.roundNote = "";
+    state.draft.roundScores = {};
+    state.draft.currentGameOrder = "entered";
+    state.draft.currentRoundKey = "new";
+    state.draft.roundDrafts = {
+      new: {
+        roundNote: "",
+        roundScores: {}
+      }
+    };
+    ensureRoundDraft(state.data.currentGame);
+    state.route = "current-game";
+    window.location.hash = "current-game";
+    render();
+    focusCurrentScoreInput();
+
     const payload = await api("/api/game/restart", {
       method: "POST",
       body: JSON.stringify({})
     });
 
-    state.data.currentGame = payload.game || null;
-    state.data.history = payload.history || [];
-    state.draft.roundNote = "";
-    state.draft.roundScores = {};
-    state.draft.currentGameOrder = "entered";
-    ensureRoundDraft(state.data.currentGame);
-    state.route = "current-game";
-    window.location.hash = "current-game";
+    if (payload.game) {
+      state.draft.roundScores = remapRoundScores(optimisticGame.players, payload.game.players || [], state.draft.roundScores);
+      state.data.currentGame = payload.game;
+      ensureRoundDraft(state.data.currentGame);
+    }
+
+    if (payload.history) {
+      state.data.history = payload.history;
+    }
+
     showToast(t("toast.gameStarted"));
     render();
     focusCurrentScoreInput();
   } catch (error) {
+    restoreAppState(snapshot);
     showToast(error.message, true);
+    render();
   }
 }
 
@@ -1891,7 +2984,12 @@ function focusNextCurrentScoreInput(currentInput) {
     return true;
   }
 
-  document.querySelector("#round-note")?.focus();
+  const note = document.querySelector("#round-note");
+  if (note instanceof HTMLTextAreaElement && !note.disabled) {
+    note.focus({ preventScroll: true });
+    return true;
+  }
+
   return false;
 }
 
@@ -2049,90 +3147,95 @@ function resetPreferences() {
 }
 
 async function resumeGame(gameId) {
+  const gameToResume = findGameById(gameId);
+  if (!gameToResume) {
+    return;
+  }
+
+  clearFinishedRoundNoteAutosave();
+  const snapshot = snapshotAppState();
+
   try {
     state.menu = null;
-    const payload = await api(`/api/game/${encodeURIComponent(gameId)}/resume`, { method: "POST" });
-    state.data.currentGame = payload.game || null;
-    state.data.history = payload.history || [];
+    state.data.history = appendCurrentGameToHistory(
+      state.data.history.filter((game) => game.id !== gameId),
+      state.data.currentGame
+    );
+    state.data.currentGame = gameToResume;
     ensureRoundDraft(state.data.currentGame);
     state.route = "current-game";
     window.location.hash = "current-game";
+    render();
+
+    const payload = await api(`/api/game/${encodeURIComponent(gameId)}/resume`, { method: "POST" });
+
+    state.data.currentGame = payload.game || state.data.currentGame;
+    if (payload.history) {
+      state.data.history = payload.history;
+    }
+    ensureRoundDraft(state.data.currentGame);
     showToast(t("toast.gameResumed"));
     render();
   } catch (error) {
+    restoreAppState(snapshot);
     showToast(error.message, true);
+    render();
   }
 }
 
 async function archiveCurrentGame() {
+  clearFinishedRoundNoteAutosave();
+  const snapshot = snapshotAppState();
+
   try {
+    const currentGame = state.data.currentGame;
+
     state.menu = null;
-    const payload = await api("/api/game", { method: "DELETE" });
-    state.data.currentGame = payload.game || null;
-    state.data.history = payload.history || state.data.history;
+    state.data.history = appendCurrentGameToHistory(state.data.history, currentGame);
+    state.data.currentGame = null;
     ensureRoundDraft(state.data.currentGame);
     state.route = "home";
     window.location.hash = "home";
+    render();
+
+    const payload = await api("/api/game", { method: "DELETE" });
+
+    state.data.currentGame = payload.game || null;
+    state.data.history = payload.history || state.data.history;
+    ensureRoundDraft(state.data.currentGame);
     showToast(t("toast.gameArchived"));
     render();
   } catch (error) {
+    restoreAppState(snapshot);
     showToast(error.message, true);
+    render();
   }
 }
 
 async function deleteArchivedGame(gameId) {
+  clearFinishedRoundNoteAutosave();
+  const snapshot = snapshotAppState();
+
   try {
     state.menu = null;
+    state.data.history = state.data.history.filter((game) => game.id !== gameId);
+    render();
+
     const payload = await api(`/api/history/${encodeURIComponent(gameId)}`, { method: "DELETE" });
+
     state.data.history = payload.history || [];
     state.menu = null;
     showToast(t("toast.gameDeleted"));
     render();
   } catch (error) {
+    restoreAppState(snapshot);
     showToast(error.message, true);
+    render();
   }
 }
 
 async function saveRound() {
-  const game = state.data.currentGame;
-  if (!game || game.isFinished) {
-    return;
-  }
-
-  const scores = game.players.map((player) => ({
-    playerId: player.id,
-    points: Number(state.draft.roundScores[player.id] || 0)
-  }));
-
-  try {
-    const payload = await api("/api/rounds", {
-      method: "POST",
-      body: JSON.stringify({
-        note: state.draft.roundNote,
-        scores
-      })
-    });
-
-    state.data.currentGame = payload.game || null;
-    state.draft.roundNote = "";
-    state.draft.roundScores = {};
-    ensureRoundDraft(state.data.currentGame);
-    state.route = "current-game";
-    window.location.hash = "current-game";
-
-    if (payload.game?.isFinished) {
-      showCelebration(getWinner(payload.game));
-      showToast(t("toast.gameFinished"));
-      render();
-      return;
-    }
-
-    showToast(t("toast.roundSaved"));
-    render();
-    focusCurrentScoreInput();
-  } catch (error) {
-    showToast(error.message, true);
-  }
+  return commitRoundDraft("new", { force: true });
 }
 
 function wireGlobalEvents() {
@@ -2173,6 +3276,9 @@ function wireGlobalEvents() {
     closeConfirmModal();
   });
 
+  elements.toast.addEventListener("pointerdown", hideToast);
+  elements.toast.addEventListener("click", hideToast);
+
   document.addEventListener("pointerdown", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
@@ -2185,10 +3291,6 @@ function wireGlobalEvents() {
 
     const item = target.closest("[data-swipe-delete-card]");
     if (!(item instanceof HTMLElement)) {
-      return;
-    }
-
-    if (item.classList.contains("revealed")) {
       return;
     }
 
@@ -2232,15 +3334,26 @@ function wireGlobalEvents() {
       state.draft.newGame.title = target.value;
     } else if (target.id === "new-player-input") {
       state.draft.newGame.playerInput = target.value;
+    } else if (target.id === "new-game-mode") {
+      state.draft.newGame.gameMode = target.value === "vengeance" || target.value === "mixed" ? target.value : "classic";
     } else if (target.id === "new-game-winning-score") {
       state.draft.newGame.winningScore = target.value;
     } else if (target.matches('#current-game-form input[data-player-id]')) {
       const playerId = target.dataset.playerId;
       if (playerId) {
         state.draft.roundScores[playerId] = target.value;
+        if (state.data.currentGame) {
+          cacheRoundDraft(state.data.currentGame);
+        }
       }
     } else if (target.id === "round-note") {
       state.draft.roundNote = target.value;
+      if (state.data.currentGame) {
+        cacheRoundDraft(state.data.currentGame);
+        if (state.data.currentGame.isFinished) {
+          queueFinishedRoundNoteSave();
+        }
+      }
     } else if (target.id === "settings-winning-score" || target.id === "settings-confirm-next-round" || target.id === "settings-theme" || target.id === "settings-language") {
       updateSettingsFromControls(false);
     }
@@ -2252,8 +3365,34 @@ function wireGlobalEvents() {
       return;
     }
 
+    if (target.id === "stats-scope") {
+      state.draft.statsScope = target.value === "all" || target.value === "pick" ? target.value : "current";
+      if (state.draft.statsScope !== "pick") {
+        state.draft.statsGameId = "";
+      }
+      render();
+      return;
+    }
+
+    if (target.id === "stats-game-id") {
+      state.draft.statsGameId = target.value;
+      render();
+      return;
+    }
+
     if (target.id === "settings-winning-score" || target.id === "settings-confirm-next-round" || target.id === "settings-theme" || target.id === "settings-language") {
       updateSettingsFromControls();
+    }
+  });
+
+  document.addEventListener("focusout", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.id === "round-note" && state.data.currentGame?.isFinished) {
+      queueFinishedRoundNoteSave();
     }
   });
 
@@ -2288,9 +3427,14 @@ function wireGlobalEvents() {
     if (swipeActions instanceof HTMLElement) {
       const swipeCard = swipeActions.closest("[data-swipe-delete-card]");
       const gameId = swipeCard?.dataset.gameCard;
+      const swipeMode = swipeCard?.dataset.swipeMode;
       if (gameId) {
         clearHomeSwipeState();
-        await deleteArchivedGame(gameId);
+        if (swipeMode === "recent") {
+          hideRecentGame(gameId);
+        } else {
+          await deleteArchivedGame(gameId);
+        }
         return;
       }
     }
@@ -2305,7 +3449,8 @@ function wireGlobalEvents() {
       if (
         gameId &&
         state.homeSwipeSuppressClickId === gameId &&
-        action !== "delete-home-game" &&
+        action !== "remove-home-game" &&
+        action !== "delete-game" &&
         !(swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed"))
       ) {
         state.homeSwipeSuppressClickId = null;
@@ -2318,6 +3463,21 @@ function wireGlobalEvents() {
         setRoute("existing-games");
       } else if (action === "go-current-game") {
         setRoute("current-game");
+      } else if (action === "move-round" && actionTarget.dataset.direction) {
+        const game = state.data.currentGame;
+        if (!game) {
+          return;
+        }
+
+        const cursor = getRoundNavigatorState(game);
+        const targetRoundKey =
+          actionTarget.dataset.direction === "prev" ? cursor.prevKey : cursor.nextKey;
+
+        if (targetRoundKey) {
+          await navigateToRound(targetRoundKey);
+        }
+      } else if (action === "select-round" && actionTarget.dataset.roundKey) {
+        await navigateToRound(actionTarget.dataset.roundKey);
       } else if (action === "open-home-game" && gameId) {
         if (swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed")) {
           clearHomeSwipeState();
@@ -2354,9 +3514,8 @@ function wireGlobalEvents() {
         await archiveCurrentGame();
       } else if (action === "play-again") {
         playAgain();
-      } else if (action === "delete-home-game" && gameId) {
-        clearHomeSwipeState();
-        await deleteArchivedGame(gameId);
+      } else if (action === "remove-home-game" && gameId) {
+        hideRecentGame(gameId);
       } else if (action === "reset-prefs") {
         resetPreferences();
       } else if (action === "resume-current") {

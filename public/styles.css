@@ -516,10 +516,16 @@ textarea {
 }
 
 .player-chip-name {
+  min-width: 0;
+  flex: 1 1 auto;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chip-remove {
+  flex: 0 0 auto;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 999px;
@@ -579,6 +585,22 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.6rem;
+  min-width: 0;
+}
+
+.stats-view .game-card-header {
+  align-items: flex-start;
+}
+
+.stats-view .game-card-header > strong {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.stats-view .game-card-header > span,
+.stats-view .game-card-header > .pill {
+  flex: 0 0 auto;
+  max-width: 100%;
 }
 
 .game-card-title {
@@ -598,6 +620,16 @@ textarea {
   gap: 0.4rem 0.6rem;
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+.game-card-meta > span,
+.home-history-meta > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.game-card-leader {
+  flex: 1 1 100%;
 }
 
 .pill {
@@ -682,6 +714,30 @@ textarea {
   font-size: 1.2rem;
 }
 
+.summary-block strong,
+.state-banner strong,
+.game-card-header strong,
+.game-card-title strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.08;
+}
+
+.stats-view .summary-block strong,
+.stats-view .state-banner strong {
+  display: block;
+}
+
+.stats-view .summary-block strong {
+  font-size: clamp(1.05rem, 4vw, 1.2rem);
+}
+
+.stats-view .state-banner strong {
+  font-size: clamp(1.1rem, 4.6vw, 1.35rem);
+}
+
 .score-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px;
@@ -689,8 +745,16 @@ textarea {
   align-items: center;
 }
 
+.score-row .field {
+  min-width: 0;
+}
+
 .score-row .player-name {
+  display: block;
   font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .score-row input {
@@ -716,6 +780,71 @@ textarea {
   content: "•";
   margin-right: 0.35rem;
   color: var(--surface-border);
+}
+
+.current-winner-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.35rem;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.current-winner-line strong {
+  min-width: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.current-round-nav {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+}
+
+.current-round-nav-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: center;
+  justify-self: center;
+}
+
+.current-round-nav-copy strong {
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.current-round-nav-copy span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.round-nav-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  justify-self: center;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.round-nav-button:disabled {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .current-game-header .eyebrow {
@@ -816,6 +945,73 @@ textarea {
   border: 1px solid var(--surface-border);
   background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), var(--surface));
   padding: 1rem;
+}
+
+.state-banner strong {
+  line-height: 1.1;
+}
+
+.state-banner-warning {
+  border-color: color-mix(in srgb, var(--danger) 26%, var(--surface-border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 18%, transparent), var(--surface));
+}
+
+.current-details-body .state-banner {
+  padding: 0.85rem 0.95rem;
+}
+
+.round-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.round-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+  color: inherit;
+  text-align: left;
+}
+
+.round-history-item.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--surface-border));
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+
+.round-history-item.is-invalid {
+  opacity: 0.66;
+}
+
+.round-history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.round-history-main strong {
+  font-size: 0.98rem;
+}
+
+.round-history-main span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.3;
+}
+
+.round-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .current-details {
@@ -948,7 +1144,7 @@ textarea {
   display: grid;
   gap: 0.3rem;
   justify-items: center;
-  max-width: 22rem;
+  max-width: min(22rem, calc(100vw - 2rem));
   padding: 1.15rem 1.2rem 1rem;
   text-align: center;
   border-radius: 26px;
@@ -972,6 +1168,9 @@ textarea {
   letter-spacing: -0.04em;
   color: #fff9f2;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .celebration-pulse {
@@ -1144,6 +1343,11 @@ textarea {
     gap: 0.65rem;
   }
 
+  .current-round-nav {
+    gap: 0.45rem;
+    padding: 0.55rem 0.65rem;
+  }
+
   .current-game-header .screen-title {
     font-size: clamp(1.5rem, 7vw, 2.05rem);
   }
@@ -1170,6 +1374,14 @@ textarea {
 
   .current-details {
     margin-top: 0.15rem;
+  }
+
+  .current-details-body .state-banner {
+    padding: 0.8rem 0.85rem;
+  }
+
+  .round-history-item {
+    padding: 0.75rem 0.8rem;
   }
 
   .current-secondary-actions {
