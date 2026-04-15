@@ -30,6 +30,8 @@ export interface Game {
   completedAt: string | null;
   players: Player[];
   rounds: Round[];
+  suddenDeathStartedAtRoundId?: string | null;
+  suddenDeathPlayerIds?: string[] | null;
 }
 
 export interface Database {

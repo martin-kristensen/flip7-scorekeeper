@@ -807,6 +807,17 @@ textarea {
   min-height: 3.25rem;
 }
 
+.score-row.is-eliminated {
+  opacity: 0.7;
+}
+
+.score-row-status {
+  justify-self: end;
+  font-size: 0.82rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .current-game-header {
   gap: 0.1rem;
 }
@@ -1227,6 +1238,24 @@ textarea {
   text-overflow: ellipsis;
 }
 
+.celebration-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.celebration-actions .primary-action,
+.celebration-actions .button-secondary {
+  width: 100%;
+  min-height: 3.4rem;
+  border-radius: 18px;
+}
+
+.celebration-actions .button-secondary {
+  background: transparent;
+}
+
 .current-roster-section {
   display: flex;
   flex-direction: column;
@@ -1301,6 +1330,11 @@ textarea {
 
 .celebration-pulse {
   animation: celebrationPulse 2400ms ease-out forwards;
+}
+
+.celebration-persistent {
+  animation: none !important;
+  opacity: 1;
 }
 
 @keyframes celebrationPulse {

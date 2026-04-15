@@ -146,6 +146,9 @@ const TRANSLATIONS = {
       leaderLabel: "Leader",
       tiedLeaderLabel: "Tied leader",
       behindLeader: ({ count }) => `${formatNumber(count)} ${count === 1 ? "point" : "points"} behind`,
+      suddenDeath: "Sudden death",
+      keepTiedResult: "Keep tied result",
+      suddenDeathInProgress: "Sudden death in progress",
       liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
       confirmTitle: "Continue to the next round?",
       finishedTitle: "Game over",
@@ -357,6 +360,9 @@ const TRANSLATIONS = {
       leaderLabel: "Ledare",
       tiedLeaderLabel: "Delad ledare",
       behindLeader: ({ count }) => `${formatNumber(count)} poäng efter`,
+      suddenDeath: "Sudden death",
+      keepTiedResult: "Behåll oavgjort",
+      suddenDeathInProgress: "Plötslig död pågår",
       liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
       confirmTitle: "Fortsätt till nästa omgång?",
       finishedTitle: "Spelet är slut",
@@ -472,7 +478,8 @@ const state = {
   celebration: {
     rafId: null,
     timeoutId: null,
-    burstTimers: []
+    burstTimers: [],
+    presentation: null
   },
   loading: true
 };
@@ -496,6 +503,9 @@ const elements = {
   celebrationCanvas: document.querySelector("#celebration-canvas"),
   celebrationTitle: document.querySelector("#celebration-title"),
   celebrationName: document.querySelector("#celebration-name"),
+  celebrationActions: document.querySelector("#celebration-actions"),
+  celebrationSuddenDeath: document.querySelector("#celebration-sudden-death"),
+  celebrationKeepTied: document.querySelector("#celebration-keep-tied"),
   toast: document.querySelector("#toast"),
   screens: {
     home: document.querySelector("#screen-home"),
@@ -645,6 +655,7 @@ function getGameProgress(game) {
   if (!game) {
     return {
       scoreboard: [],
+      winners: [],
       winner: null,
       winningRoundId: null,
       winningRoundNumber: null,
@@ -659,12 +670,57 @@ function getGameProgress(game) {
   let winningRoundId = null;
   let winningRoundNumber = null;
   let completedAt = null;
+  const suddenDeathRoundId = game.suddenDeathStartedAtRoundId || null;
+  const suddenDeathPlayers = new Set(
+    Array.isArray(game.suddenDeathPlayerIds) ? game.suddenDeathPlayerIds.filter((id) => typeof id === "string") : []
+  );
+  let suddenDeathMode = !suddenDeathRoundId;
 
   for (let index = 0; index < game.rounds.length; index += 1) {
     const round = game.rounds[index];
+    const activePlayerIds = new Set(
+      game.players.filter((player) => isPlayerActiveAt(player, round.createdAt)).map((player) => player.id)
+    );
 
     for (const score of round.scores || []) {
       totals[score.playerId] = (totals[score.playerId] || 0) + score.points;
+    }
+
+    if (suddenDeathRoundId) {
+      if (round.id === suddenDeathRoundId) {
+        suddenDeathMode = true;
+        continue;
+      }
+
+      if (!suddenDeathMode) {
+        continue;
+      }
+
+      const suddenDeathEligiblePlayers = game.players.filter(
+        (player) => activePlayerIds.has(player.id) && suddenDeathPlayers.has(player.id)
+      );
+      const suddenDeathScoreboard = buildScoreboard(suddenDeathEligiblePlayers, totals);
+      const leader = suddenDeathScoreboard[0];
+
+      if (leader) {
+        const tiedLeaders = suddenDeathScoreboard.filter((entry) => entry.total === leader.total);
+        if (tiedLeaders.length === 1) {
+          winners = tiedLeaders.map((entry) => ({
+            ...entry,
+            threshold: game.winningScore,
+            roundId: round.id,
+            roundNumber: index + 1,
+            roundCreatedAt: round.createdAt
+          }));
+          winner = winners[0] || null;
+          winningRoundId = round.id;
+          winningRoundNumber = index + 1;
+          completedAt = round.createdAt;
+          break;
+        }
+      }
+
+      continue;
     }
 
     const scoreboard = buildScoreboard(game.players, totals);
@@ -2199,14 +2255,22 @@ function renderCurrentGameScreen() {
   const progress = getGameProgress(game);
   const winnerPresentation = getWinnerPresentation(game);
   const winner = winnerPresentation.winners[0] || null;
+  const suddenDeathActive = Boolean(game.suddenDeathStartedAtRoundId && !winner);
+  const finishedSuddenDeath = Boolean(game.isFinished && game.suddenDeathStartedAtRoundId);
   const roundNavigator = getRoundNavigatorState(game);
   const activePlayers = getActiveGamePlayers(game);
   const inactivePlayers = game.players.filter((player) => !player.isActive);
   const orderedPlayers = getCurrentGamePlayers(game);
+  const scoreRowPlayers = suddenDeathActive
+    ? [...orderedPlayers, ...inactivePlayers]
+    : finishedSuddenDeath
+      ? game.players
+      : orderedPlayers;
   const canEditScores = isRoundDraftEditable(game);
   const canEditNote = Boolean(canEditScores || game.isFinished);
   const canManagePlayers = Boolean(roundNavigator.isLive && !game.isFinished);
   const activePlayerCount = activePlayers.length;
+  const headerPlayerCount = finishedSuddenDeath ? game.players.length : activePlayerCount;
   const currentRoundKey = getRoundDraftKey();
   const invalidRoundIds = new Set(progress.invalidRoundIds);
   const selectedRound = getSelectedRound(game);
@@ -2235,6 +2299,7 @@ function renderCurrentGameScreen() {
     draftForSelectedRound.roundNote,
     canEditNote ? "note-editable" : "note-locked",
     game.isFinished ? `winner:${winner?.roundId || "none"}` : "live",
+    suddenDeathActive ? "sudden-death" : "normal",
     progress.invalidRoundIds.join(","),
     progress.winningRoundId || "none",
     progress.winningRoundNumber || 0,
@@ -2247,7 +2312,7 @@ function renderCurrentGameScreen() {
     game.id,
     game.title,
     game.winningScore,
-    activePlayerCount,
+    headerPlayerCount,
     roundNavigator.label,
     roundNavigator.status,
     winnerPresentation.nameText || "",
@@ -2340,10 +2405,17 @@ function renderCurrentGameScreen() {
     <div class="stack-tight current-game-header">
       <p class="eyebrow">${escapeHtml(t("current.eyebrow"))}</p>
       <h1 class="screen-title">${escapeHtml(game.title)}</h1>
+      ${
+        suddenDeathActive
+          ? `<div class="state-banner state-banner-warning"><strong>${escapeHtml(
+              t("current.suddenDeathInProgress")
+            )}</strong><span class="muted">${escapeHtml(t("current.suddenDeath"))}</span></div>`
+          : ""
+      }
       <div class="current-meta-line">
         <span>${escapeHtml(t("current.winningScore"))} ${formatNumber(game.winningScore)}</span>
         <span>${escapeHtml(
-          `${activePlayerCount} ${pluralLabel(activePlayerCount, t("common.player"), t("common.players"))}`
+          `${headerPlayerCount} ${pluralLabel(headerPlayerCount, t("common.player"), t("common.players"))}`
         )}</span>
       </div>
       ${
@@ -2418,15 +2490,16 @@ function renderCurrentGameScreen() {
             </button>
           </div>
         </div>
-        <div class="score-list">
-          ${orderedPlayers
+      <div class="score-list">
+          ${scoreRowPlayers
             .map((player, index) => {
               const total = progress.scoreboard.find((entry) => entry.playerId === player.id)?.total ?? 0;
-              const value = draftForSelectedRound.roundScores[player.id] ?? "";
+              const isEliminated = suddenDeathActive && !player.isActive;
+              const value = isEliminated ? "" : draftForSelectedRound.roundScores[player.id] ?? "";
               const livePreview = liveScorePreviewState?.previews.get(player.id) || null;
               const displayedTotal = livePreview?.hasValue ? livePreview.projectedTotal : total;
               return `
-                <div class="score-row ${showLiveScorePreview ? "has-live-score-preview" : ""}" data-player-id="${escapeHtml(
+                <div class="score-row ${showLiveScorePreview ? "has-live-score-preview" : ""} ${isEliminated ? "is-eliminated" : ""}" data-player-id="${escapeHtml(
                   player.id
                 )}">
                   <label class="field">
@@ -2436,7 +2509,7 @@ function renderCurrentGameScreen() {
                     )}</span>
                   </label>
                   ${
-                    showLiveScorePreview
+                    showLiveScorePreview && !isEliminated
                       ? `
                         <div class="score-preview" data-score-preview>
                           <span class="score-preview-total" data-live-score-preview-total>${
@@ -2465,18 +2538,24 @@ function renderCurrentGameScreen() {
                       `
                       : ""
                   }
-                  <input
-                    type="text"
-                    step="1"
-                    inputmode="numeric"
-                    enterkeyhint="next"
-                    pattern="[0-9]*"
-                    autocomplete="off"
-                    data-player-id="${escapeHtml(player.id)}"
-                    data-player-index="${index}"
-                    value="${escapeHtml(value)}"
-                    ${canEditScores ? "" : "disabled"}
-                  />
+                  ${
+                    isEliminated
+                      ? `<span class="score-row-status muted">${escapeHtml(t("current.inactive"))}</span>`
+                      : `
+                        <input
+                          type="text"
+                          step="1"
+                          inputmode="numeric"
+                          enterkeyhint="next"
+                          pattern="[0-9]*"
+                          autocomplete="off"
+                          data-player-id="${escapeHtml(player.id)}"
+                          data-player-index="${index}"
+                          value="${escapeHtml(value)}"
+                          ${canEditScores ? "" : "disabled"}
+                        />
+                      `
+                  }
                 </div>
               `;
             })
@@ -2513,7 +2592,11 @@ function renderCurrentGameScreen() {
       <div class="state-banner">
         <strong>${escapeHtml(gameModeLabel(game.gameMode))}</strong>
         <span class="muted">${escapeHtml(
-          winner ? `${t("current.finishedTitle")}: ${winnerPresentation.nameText}` : t("current.lead")
+          winner
+            ? `${t("current.finishedTitle")}: ${winnerPresentation.nameText}`
+            : suddenDeathActive
+              ? t("current.suddenDeathInProgress")
+              : t("current.lead")
         )}</span>
       </div>
   `;
@@ -3095,10 +3178,21 @@ function clearCelebrationTimers() {
 
 function hideCelebration() {
   clearCelebrationTimers();
+  state.celebration.presentation = null;
   if (elements.celebration) {
     elements.celebration.classList.add("hidden");
     elements.celebration.classList.remove("celebration-pulse");
+    elements.celebration.classList.remove("celebration-persistent");
     elements.celebration.setAttribute("aria-hidden", "true");
+  }
+  if (elements.celebrationActions) {
+    elements.celebrationActions.classList.add("hidden");
+  }
+  if (elements.celebrationSuddenDeath) {
+    elements.celebrationSuddenDeath.disabled = false;
+  }
+  if (elements.celebrationKeepTied) {
+    elements.celebrationKeepTied.disabled = false;
   }
 }
 
@@ -3217,6 +3311,7 @@ function showCelebration(winnerPresentation) {
   }
 
   hideCelebration();
+  state.celebration.presentation = winnerPresentation;
   elements.celebration.classList.remove("hidden");
   elements.celebration.classList.add("celebration-pulse");
   elements.celebration.setAttribute("aria-hidden", "false");
@@ -3230,10 +3325,69 @@ function showCelebration(winnerPresentation) {
     elements.celebrationName.title = winnerPresentation.nameText;
   }
 
+  const isTied = winnerPresentation.winners.length > 1;
+  if (elements.celebrationActions) {
+    elements.celebrationActions.classList.toggle("hidden", !isTied);
+  }
+  if (elements.celebration) {
+    elements.celebration.classList.toggle("celebration-persistent", isTied);
+  }
+  if (elements.celebrationSuddenDeath) {
+    elements.celebrationSuddenDeath.textContent = t("current.suddenDeath");
+  }
+  if (elements.celebrationKeepTied) {
+    elements.celebrationKeepTied.textContent = t("current.keepTiedResult");
+  }
+
   startCelebrationFireworks();
-  state.celebration.timeoutId = window.setTimeout(() => {
+  if (!isTied) {
+    state.celebration.timeoutId = window.setTimeout(() => {
+      hideCelebration();
+    }, 2800);
+  }
+}
+
+async function startSuddenDeathFromCelebration() {
+  const game = state.data.currentGame;
+  const presentation = state.celebration.presentation || (game ? getWinnerPresentation(game) : null);
+
+  if (!game || !presentation || presentation.winners.length < 2) {
     hideCelebration();
-  }, 2800);
+    return;
+  }
+
+  if (elements.celebrationSuddenDeath) {
+    elements.celebrationSuddenDeath.disabled = true;
+  }
+  if (elements.celebrationKeepTied) {
+    elements.celebrationKeepTied.disabled = true;
+  }
+
+  try {
+    const payload = await api(`/api/game/${encodeURIComponent(game.id)}/sudden-death`, {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+
+    if (payload.game) {
+      state.data.currentGame = payload.game;
+      resetLiveRoundDraft(state.data.currentGame);
+    }
+
+    hideCelebration();
+    render();
+    if (isRoundDraftEditable(state.data.currentGame)) {
+      focusCurrentScoreInput();
+    }
+  } catch (error) {
+    if (elements.celebrationSuddenDeath) {
+      elements.celebrationSuddenDeath.disabled = false;
+    }
+    if (elements.celebrationKeepTied) {
+      elements.celebrationKeepTied.disabled = false;
+    }
+    showToast(error.message, true);
+  }
 }
 
 function resetNewGameDraft() {
@@ -3889,6 +4043,14 @@ function wireGlobalEvents() {
     if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
       closeArchiveConfirmModal();
     }
+  });
+
+  elements.celebrationSuddenDeath.addEventListener("click", async () => {
+    await startSuddenDeathFromCelebration();
+  });
+
+  elements.celebrationKeepTied.addEventListener("click", () => {
+    hideCelebration();
   });
 
   elements.toast.addEventListener("pointerdown", hideToast);

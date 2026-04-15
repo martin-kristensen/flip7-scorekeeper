@@ -141,7 +141,9 @@ const createGame = (
     updatedAt: timestamp,
     completedAt: null,
     players,
-    rounds: []
+    rounds: [],
+    suddenDeathStartedAtRoundId: null,
+    suddenDeathPlayerIds: null
   };
 };
 
@@ -175,6 +177,53 @@ const validateRoundScores = (players: Player[], incomingScores: unknown[]) => {
   }
 
   return scores;
+};
+
+const buildTotals = (game: Game) => {
+  const totals: Record<string, number> = Object.fromEntries(game.players.map((player) => [player.id, 0]));
+
+  for (const round of game.rounds) {
+    const activePlayerIds = new Set(
+      game.players.filter((player) => isPlayerActiveAt(player, round.createdAt)).map((player) => player.id)
+    );
+
+    for (const score of round.scores) {
+      if (!activePlayerIds.has(score.playerId)) {
+        continue;
+      }
+
+      totals[score.playerId] = (totals[score.playerId] || 0) + score.points;
+    }
+  }
+
+  return totals;
+};
+
+const getSuddenDeathSurvivorIds = (game: Game) => {
+  const eligiblePlayerIds = new Set(
+    Array.isArray(game.suddenDeathPlayerIds) ? game.suddenDeathPlayerIds.filter((id) => typeof id === "string") : []
+  );
+  const eligiblePlayers = game.players.filter((player) => player.isActive && eligiblePlayerIds.has(player.id));
+
+  if (!eligiblePlayers.length) {
+    return [];
+  }
+
+  const totals = buildTotals(game);
+  const scoreboard = eligiblePlayers
+    .map((player) => ({
+      playerId: player.id,
+      name: player.name,
+      total: totals[player.id] || 0
+    }))
+    .sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
+
+  const leader = scoreboard[0];
+  if (!leader) {
+    return [];
+  }
+
+  return scoreboard.filter((entry) => entry.total === leader.total).map((entry) => entry.playerId);
 };
 
 const finalizeGameState = (game: Game) => {
@@ -354,14 +403,14 @@ app.post("/api/game/restart", async (request, response) => {
       throw new Error("There is no current game to restart.");
     }
 
-    const activePlayers = getActivePlayers(current.currentGame);
-    if (activePlayers.length < 2) {
+    const restartPlayers = current.currentGame.players;
+    if (restartPlayers.length < 2) {
       throw new Error("A game needs at least two players.");
     }
 
     const nextGame = createGame(
       title || current.currentGame.title,
-      activePlayers.map((player) => player.name),
+      restartPlayers.map((player) => player.name),
       {
         gameMode: current.currentGame.gameMode,
         winningScore: current.currentGame.winningScore
@@ -435,12 +484,52 @@ app.post("/api/rounds", async (request, response) => {
       scores
     };
 
+    const roundCreatedAt = round.createdAt;
+    const eliminationTimestamp = new Date(Date.parse(roundCreatedAt) + 1).toISOString();
     const updatedGame: Game = {
       ...current.currentGame,
       updatedAt: now(),
       completedAt: null,
       rounds: [...current.currentGame.rounds, round]
     };
+
+    if (updatedGame.suddenDeathStartedAtRoundId) {
+      const survivorIds = getSuddenDeathSurvivorIds(updatedGame);
+      if (survivorIds.length) {
+        const survivorIdSet = new Set(survivorIds);
+        const eliminatedPlayerIds = updatedGame.players
+          .filter((player) => player.isActive && !survivorIdSet.has(player.id))
+          .map((player) => player.id);
+
+        if (eliminatedPlayerIds.length) {
+          const eliminatedPlayerIdSet = new Set(eliminatedPlayerIds);
+          return {
+            ...current,
+            currentGame: finalizeGameState({
+              ...updatedGame,
+              suddenDeathPlayerIds: survivorIds,
+              players: updatedGame.players.map((player) =>
+                eliminatedPlayerIdSet.has(player.id)
+                  ? {
+                      ...player,
+                      isActive: false,
+                      removedAt: eliminationTimestamp
+                    }
+                  : player
+              )
+            })
+          };
+        }
+
+        return {
+          ...current,
+          currentGame: finalizeGameState({
+            ...updatedGame,
+            suddenDeathPlayerIds: survivorIds
+          })
+        };
+      }
+    }
 
     return { ...current, currentGame: finalizeGameState(updatedGame) };
   }).catch((error: Error) => {
@@ -453,6 +542,56 @@ app.post("/api/rounds", async (request, response) => {
   }
 
   response.status(201).json({ game: toGameResponse(database.currentGame) });
+});
+
+app.post("/api/game/:id/sudden-death", async (request, response) => {
+  const gameId = String(request.params.id ?? "");
+
+  const database = await updateDatabase(request, (current) => {
+    if (!current.currentGame || current.currentGame.id !== gameId) {
+      throw new Error("Current game not found.");
+    }
+
+    if (current.currentGame.suddenDeathStartedAtRoundId) {
+      throw new Error("Sudden death is already active.");
+    }
+
+    const progress = getGameProgress(current.currentGame);
+    if (!progress.winners || progress.winners.length < 2 || !progress.winningRoundId) {
+      throw new Error("This game is not tied.");
+    }
+
+    const suddenDeathPlayerIds = progress.winners.map((winner) => winner.playerId);
+    const timestamp = now();
+
+    const updatedGame: Game = {
+      ...current.currentGame,
+      updatedAt: timestamp,
+      completedAt: null,
+      suddenDeathStartedAtRoundId: progress.winningRoundId,
+      suddenDeathPlayerIds,
+      players: current.currentGame.players.map((player) =>
+        suddenDeathPlayerIds.includes(player.id) || !player.isActive
+          ? player
+          : {
+              ...player,
+              isActive: false,
+              removedAt: timestamp
+            }
+      )
+    };
+
+    return { ...current, currentGame: updatedGame };
+  }).catch((error: Error) => {
+    response.status(400).json({ error: error.message });
+    return null;
+  });
+
+  if (!database) {
+    return;
+  }
+
+  response.json({ game: toGameResponse(database.currentGame) });
 });
 
 app.patch("/api/rounds/:id", async (request, response) => {

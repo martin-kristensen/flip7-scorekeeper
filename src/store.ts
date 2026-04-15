@@ -85,7 +85,7 @@ const normalizeGame = (value: unknown): Game | null => {
     return null;
   }
 
-  const candidate = value as Partial<Game>;
+  const candidate = value as Record<string, unknown> & Partial<Game>;
   const fallbackJoinedAt = typeof candidate.createdAt === "string" ? candidate.createdAt : "";
   const players = Array.isArray(candidate.players)
     ? candidate.players
@@ -95,6 +95,13 @@ const normalizeGame = (value: unknown): Game | null => {
   const rounds = Array.isArray(candidate.rounds)
     ? candidate.rounds.map(normalizeRound).filter((round): round is Round => round !== null)
     : [];
+  const suddenDeathPlayerIds = Array.isArray(candidate.suddenDeathPlayerIds)
+    ? candidate.suddenDeathPlayerIds.filter((playerId: unknown): playerId is string => typeof playerId === "string" && playerId.length > 0)
+    : null;
+  const suddenDeathStartedAtRoundId =
+    typeof candidate.suddenDeathStartedAtRoundId === "string"
+      ? candidate.suddenDeathStartedAtRoundId || null
+      : null;
 
   if (
     typeof candidate.id !== "string" ||
@@ -125,7 +132,9 @@ const normalizeGame = (value: unknown): Game | null => {
     updatedAt: candidate.updatedAt,
     completedAt: typeof candidate.completedAt === "string" ? candidate.completedAt : null,
     players,
-    rounds
+    rounds,
+    suddenDeathStartedAtRoundId,
+    suddenDeathPlayerIds
   };
 };
 
@@ -294,6 +303,11 @@ export const getGameProgress = (game: Game): GameProgress => {
   let winningRoundId: string | null = null;
   let winningRoundNumber: number | null = null;
   let completedAt: string | null = null;
+  const suddenDeathRoundId = game.suddenDeathStartedAtRoundId || null;
+  const suddenDeathPlayers = new Set(
+    Array.isArray(game.suddenDeathPlayerIds) ? game.suddenDeathPlayerIds.filter((id) => typeof id === "string") : []
+  );
+  let suddenDeathMode = !suddenDeathRoundId;
 
   for (let index = 0; index < game.rounds.length; index += 1) {
     const round = game.rounds[index];
@@ -307,6 +321,43 @@ export const getGameProgress = (game: Game): GameProgress => {
       }
 
       totals[score.playerId] = (totals[score.playerId] ?? 0) + score.points;
+    }
+
+    if (suddenDeathRoundId) {
+      if (round.id === suddenDeathRoundId) {
+        suddenDeathMode = true;
+        continue;
+      }
+
+      if (!suddenDeathMode) {
+        continue;
+      }
+
+      const suddenDeathEligiblePlayers = game.players.filter(
+        (player) => activePlayerIds.has(player.id) && suddenDeathPlayers.has(player.id)
+      );
+      const suddenDeathScoreboard = buildScoreboard(suddenDeathEligiblePlayers, totals);
+      const leader = suddenDeathScoreboard[0];
+
+      if (leader) {
+        const tiedLeaders = suddenDeathScoreboard.filter((entry) => entry.total === leader.total);
+        if (tiedLeaders.length === 1) {
+          winners = tiedLeaders.map((entry) => ({
+            ...entry,
+            threshold: game.winningScore,
+            roundId: round.id,
+            roundNumber: index + 1,
+            roundCreatedAt: round.createdAt
+          }));
+          winner = winners[0] || null;
+          winningRoundId = round.id;
+          winningRoundNumber = index + 1;
+          completedAt = round.createdAt;
+          break;
+        }
+      }
+
+      continue;
     }
 
     const scoreboard = buildScoreboard(game.players, totals);
