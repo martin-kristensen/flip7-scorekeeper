@@ -1920,6 +1920,9 @@ function renderHomeScreen() {
         <a href="https://github.com/Klangen82" target="_blank" rel="noreferrer">Klangen82</a>
         and Codex.
       </p>
+      <p class="home-disclaimer plain-copy muted">
+        Independent fan-made scoreboard for Flip 7. Not affiliated with the creators of Flip 7.
+      </p>
     </section>
     ${mobileRecentGames}
       ${
