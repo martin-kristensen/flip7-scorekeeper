@@ -142,10 +142,16 @@ const TRANSLATIONS = {
       archiveGame: "Tuck away game",
       newGame: "Start a game",
       playAgain: "Play again",
+      leftToWin: ({ count }) => `${formatNumber(count)} left`,
+      leaderLabel: "Leader",
+      tiedLeaderLabel: "Tied leader",
+      behindLeader: ({ count }) => `${formatNumber(count)} ${count === 1 ? "point" : "points"} behind`,
+      liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
       confirmTitle: "Continue to the next round?",
       finishedTitle: "Game over",
       finishedLead: "Someone hit the target.",
       winnerLabel: "Winner",
+      tiedWinnerLabel: "Tied winners",
       askContinue: "Nobody has hit the target yet. Start another round anyway?",
       continueNextRound: "Continue to next round",
       currentTotals: "Current totals",
@@ -195,7 +201,8 @@ const TRANSLATIONS = {
       confirm: "Tuck away"
     },
     celebration: {
-      title: "Winner!"
+      title: "Winner!",
+      tiedTitle: "Tied winners!"
     },
     toast: {
       gameStarted: "Game on.",
@@ -346,10 +353,16 @@ const TRANSLATIONS = {
       archiveGame: "Flytta till arkiv",
       newGame: "Starta ett spel",
       playAgain: "Spela igen",
+      leftToWin: ({ count }) => `${formatNumber(count)} kvar`,
+      leaderLabel: "Ledare",
+      tiedLeaderLabel: "Delad ledare",
+      behindLeader: ({ count }) => `${formatNumber(count)} poäng efter`,
+      liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
       confirmTitle: "Fortsätt till nästa omgång?",
       finishedTitle: "Spelet är slut",
       finishedLead: "Någon har nått målet.",
       winnerLabel: "Vinnare",
+      tiedWinnerLabel: "Delade vinnare",
       askContinue: "Ingen har nått målet ännu. Vill du köra en omgång till ändå?",
       continueNextRound: "Fortsätt till nästa omgång",
       currentTotals: "Nuvarande totalsummor",
@@ -399,7 +412,8 @@ const TRANSLATIONS = {
       confirm: "Lägg undan"
     },
     celebration: {
-      title: "Vinnare!"
+      title: "Vinnare!",
+      tiedTitle: "Delade vinnare!"
     },
     toast: {
       gameStarted: "Spelet är igång.",
@@ -597,6 +611,18 @@ function formatNumber(value) {
   return new Intl.NumberFormat(state.settings.language).format(value);
 }
 
+function formatNameList(names) {
+  if (!names.length) {
+    return "";
+  }
+
+  if (typeof Intl !== "undefined" && typeof Intl.ListFormat === "function") {
+    return new Intl.ListFormat(state.settings.language, { style: "long", type: "conjunction" }).format(names);
+  }
+
+  return names.join(", ");
+}
+
 function pluralLabel(count, singular, plural) {
   return count === 1 ? singular : plural;
 }
@@ -628,6 +654,7 @@ function getGameProgress(game) {
   }
 
   const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
+  let winners = [];
   let winner = null;
   let winningRoundId = null;
   let winningRoundNumber = null;
@@ -644,13 +671,16 @@ function getGameProgress(game) {
     const leader = scoreboard[0];
 
     if (leader && leader.total >= game.winningScore) {
-      winner = {
-        ...leader,
-        threshold: game.winningScore,
-        roundId: round.id,
-        roundNumber: index + 1,
-        roundCreatedAt: round.createdAt
-      };
+      winners = scoreboard
+        .filter((entry) => entry.total === leader.total)
+        .map((entry) => ({
+          ...entry,
+          threshold: game.winningScore,
+          roundId: round.id,
+          roundNumber: index + 1,
+          roundCreatedAt: round.createdAt
+        }));
+      winner = winners[0] || null;
       winningRoundId = round.id;
       winningRoundNumber = index + 1;
       completedAt = round.createdAt;
@@ -660,6 +690,7 @@ function getGameProgress(game) {
 
   return {
     scoreboard: buildScoreboard(game.players, totals),
+    winners,
     winner,
     winningRoundId,
     winningRoundNumber,
@@ -690,6 +721,23 @@ function summarizeGame(game) {
 
 function getWinner(game) {
   return getGameProgress(game).winner;
+}
+
+function getWinnerPresentation(game) {
+  const progress = getGameProgress(game);
+  const winners = progress.winners?.length ? progress.winners : progress.winner ? [progress.winner] : [];
+  const names = winners.map((winner) => winner.name);
+
+  return {
+    winners,
+    names,
+    label: names.length > 1 ? t("current.tiedWinnerLabel") : t("current.winnerLabel"),
+    celebrationTitle: names.length > 1 ? t("celebration.tiedTitle") : t("celebration.title"),
+    nameText: formatNameList(names),
+    total: winners[0]?.total ?? 0,
+    roundId: winners[0]?.roundId || null,
+    roundNumber: winners[0]?.roundNumber || null
+  };
 }
 
 function getActiveStatsGame() {
@@ -723,7 +771,8 @@ function buildGameStats(game) {
     lowestRoundTotal,
     averageRoundTotal,
     leader: scoreboard[0] || null,
-    winner: getWinner(game)
+    winner: getWinner(game),
+    winnerPresentation: getWinnerPresentation(game)
   };
 }
 
@@ -847,6 +896,106 @@ function getCurrentGamePlayers(game) {
     const rightTotal = order.get(right.id) ?? 0;
     const leftTotal = order.get(left.id) ?? 0;
     return rightTotal - leftTotal || (originalIndex.get(left.id) ?? 0) - (originalIndex.get(right.id) ?? 0);
+  });
+}
+
+function getCurrentGameLiveScorePreview(game, roundScores = state.draft.roundScores) {
+  const progress = getGameProgress(game);
+  const committedTotals = new Map(progress.scoreboard.map((entry) => [entry.playerId, entry.total]));
+  const previews = new Map();
+  let leaderTotal = 0;
+
+  for (const player of getCurrentGamePlayers(game)) {
+    const committedTotal = committedTotals.get(player.id) ?? 0;
+    const rawValue = roundScores?.[player.id];
+    const hasValue = rawValue !== "" && rawValue !== null && rawValue !== undefined;
+    const enteredPoints = hasValue ? Number(rawValue) : 0;
+    const safeEnteredPoints = Number.isFinite(enteredPoints) ? enteredPoints : 0;
+    const projectedTotal = committedTotal + safeEnteredPoints;
+
+    previews.set(player.id, {
+      committedTotal,
+      enteredPoints: safeEnteredPoints,
+      projectedTotal,
+      hasValue
+    });
+
+    leaderTotal = Math.max(leaderTotal, projectedTotal);
+  }
+
+  let leaderCount = 0;
+  for (const preview of previews.values()) {
+    if (preview.projectedTotal === leaderTotal) {
+      leaderCount += 1;
+    }
+  }
+
+  return { leaderCount, leaderTotal, previews };
+}
+
+function getCurrentGamePreviewLabel(projectedTotal, leaderTotal, leaderCount) {
+  const gap = leaderTotal - projectedTotal;
+  if (gap <= 0) {
+    return leaderCount > 1 ? t("current.tiedLeaderLabel") : t("current.leaderLabel");
+  }
+
+  return t("current.behindLeader", { count: gap });
+}
+
+function getCurrentGameTotalLine(total, winningScore) {
+  const pointsLeft = Math.max(0, winningScore - total);
+  return `${formatNumber(total)} pts · ${t("current.leftToWin", { count: pointsLeft })}`;
+}
+
+function updateCurrentGameLiveScorePreview() {
+  const game = state.data.currentGame;
+  if (!game || state.route !== "current-game" || getRoundDraftKey() !== "new") {
+    return;
+  }
+
+  const form = document.querySelector("#current-game-form");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+
+  const { leaderCount, leaderTotal, previews } = getCurrentGameLiveScorePreview(game);
+
+  form.querySelectorAll(".score-row[data-player-id]").forEach((row) => {
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+
+    const playerId = row.dataset.playerId;
+    if (!playerId) {
+      return;
+    }
+
+    const preview = previews.get(playerId);
+    const previewTotal = row.querySelector("[data-live-score-preview-total]");
+    const previewGap = row.querySelector("[data-live-score-preview-gap]");
+
+    if (!(previewTotal instanceof HTMLElement) || !(previewGap instanceof HTMLElement) || !preview) {
+      return;
+    }
+
+    const totalLine = row.querySelector("[data-live-score-total]");
+
+    if (totalLine instanceof HTMLElement) {
+      const displayedTotal = preview.hasValue ? preview.projectedTotal : preview.committedTotal;
+      totalLine.textContent = getCurrentGameTotalLine(displayedTotal, game.winningScore);
+    }
+
+    if (preview.hasValue) {
+      previewTotal.textContent = t("current.liveScorePreview", {
+        committed: formatNumber(preview.committedTotal),
+        entered: formatNumber(preview.enteredPoints),
+        projected: formatNumber(preview.projectedTotal)
+      });
+    } else {
+      previewTotal.textContent = "";
+    }
+
+    previewGap.textContent = getCurrentGamePreviewLabel(preview.projectedTotal, leaderTotal, leaderCount);
   });
 }
 
@@ -1473,7 +1622,7 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
     }
 
     if (payload.game?.isFinished) {
-      showCelebration(getWinner(payload.game));
+      showCelebration(getWinnerPresentation(payload.game));
       showToast(t("toast.gameFinished"));
     } else {
       showToast(t("toast.roundSaved"));
@@ -1870,9 +2019,12 @@ function renderGameCard(game, { current = false } = {}) {
       : t("statuses.archived");
   const scoreSummary = summarizeGame(game);
   const leader = scoreSummary[0];
-  const winner = getWinner(game);
+  const winnerPresentation = isFinished ? getWinnerPresentation(game) : null;
+  const winner = winnerPresentation?.winners[0] || getWinner(game);
   const headline = isFinished && winner ? winner : leader;
-  const headlineLabel = isFinished ? t("stats.winner") : t("stats.leader");
+  const headlineLabel = isFinished ? winnerPresentation?.label || t("stats.winner") : t("stats.leader");
+  const headlineName = winnerPresentation?.nameText || headline?.name || "";
+  const headlineTotal = winnerPresentation?.total ?? headline?.total ?? 0;
   const statusPillClass = isFinished ? "pill-success" : current ? "" : "pill-muted";
   const menuAction = current ? "archive" : "delete";
   const menuLabel = current ? t("existing.archiveCard") : t("existing.deleteCard");
@@ -1908,9 +2060,9 @@ function renderGameCard(game, { current = false } = {}) {
               <span class="pill ${statusPillClass}">${escapeHtml(status)}</span>
               ${
                 headline
-                  ? `<span class="game-card-leader" title="${escapeHtml(`${headlineLabel}: ${headline.name}`)}">${escapeHtml(
+                  ? `<span class="game-card-leader" title="${escapeHtml(`${headlineLabel}: ${headlineName}`)}">${escapeHtml(
                       headlineLabel
-                    )}: ${escapeHtml(headline.name)} ${formatNumber(headline.total)} ${escapeHtml(t("common.points"))}</span>`
+                    )}: ${escapeHtml(headlineName)} ${formatNumber(headlineTotal)} ${escapeHtml(t("common.points"))}</span>`
                   : ""
               }
             </div>
@@ -1959,9 +2111,9 @@ function renderGameCard(game, { current = false } = {}) {
         <span class="pill ${statusPillClass}">${escapeHtml(status)}</span>
         ${
           headline
-            ? `<span>${escapeHtml(headlineLabel)}: ${escapeHtml(headline.name)} ${formatNumber(
-                headline.total
-              )} ${escapeHtml(t("common.points"))}</span>`
+            ? `<span>${escapeHtml(headlineLabel)}: ${escapeHtml(headlineName)} ${formatNumber(headlineTotal)} ${escapeHtml(
+                t("common.points")
+              )}</span>`
             : ""
         }
       </div>
@@ -2045,7 +2197,8 @@ function renderCurrentGameScreen() {
 
   ensureRoundDraft(game);
   const progress = getGameProgress(game);
-  const winner = progress.winner;
+  const winnerPresentation = getWinnerPresentation(game);
+  const winner = winnerPresentation.winners[0] || null;
   const roundNavigator = getRoundNavigatorState(game);
   const activePlayers = getActiveGamePlayers(game);
   const inactivePlayers = game.players.filter((player) => !player.isActive);
@@ -2059,6 +2212,10 @@ function renderCurrentGameScreen() {
   const selectedRound = getSelectedRound(game);
   const draftForSelectedRound =
     state.draft.roundDrafts[currentRoundKey] || createRoundDraftFromRound(game, selectedRound);
+  const showLiveScorePreview = currentRoundKey === "new" && canEditScores;
+  const liveScorePreviewState = showLiveScorePreview
+    ? getCurrentGameLiveScorePreview(game, draftForSelectedRound.roundScores)
+    : null;
   const roundNoteLabel = game.isFinished ? t("current.finalNote") : t("current.roundNote");
   const scoresSignature = orderedPlayers
     .map((player) => `${player.id}:${draftForSelectedRound.roundScores[player.id] ?? ""}`)
@@ -2093,7 +2250,7 @@ function renderCurrentGameScreen() {
     activePlayerCount,
     roundNavigator.label,
     roundNavigator.status,
-    winner?.name || "",
+    winnerPresentation.nameText || "",
     currentRoundKey
   ].join("::");
   const warningKey = `${game.id}:${progress.invalidRoundIds.join(",")}:${progress.winningRoundNumber || 0}`;
@@ -2191,9 +2348,9 @@ function renderCurrentGameScreen() {
       </div>
       ${
         winner
-          ? `<div class="current-winner-line"><span>${escapeHtml(t("current.winnerLabel"))}:</span><strong title="${escapeHtml(
-              winner.name
-            )}">${escapeHtml(winner.name)}</strong></div>`
+          ? `<div class="current-winner-line"><span>${escapeHtml(winnerPresentation.label)}:</span><strong title="${escapeHtml(
+              winnerPresentation.nameText
+            )}">${escapeHtml(winnerPresentation.nameText)}</strong></div>`
           : ""
       }
       <div class="current-round-nav" role="group" aria-label="${escapeHtml(t("current.roundNavigation"))}">
@@ -2266,12 +2423,48 @@ function renderCurrentGameScreen() {
             .map((player, index) => {
               const total = progress.scoreboard.find((entry) => entry.playerId === player.id)?.total ?? 0;
               const value = draftForSelectedRound.roundScores[player.id] ?? "";
+              const livePreview = liveScorePreviewState?.previews.get(player.id) || null;
+              const displayedTotal = livePreview?.hasValue ? livePreview.projectedTotal : total;
               return `
-                <div class="score-row">
+                <div class="score-row ${showLiveScorePreview ? "has-live-score-preview" : ""}" data-player-id="${escapeHtml(
+                  player.id
+                )}">
                   <label class="field">
                     <span class="player-name" title="${escapeHtml(player.name)}">${escapeHtml(player.name)}</span>
-                    <span class="muted">${formatNumber(total)} ${escapeHtml(t("common.points"))}</span>
+                    <span class="muted" data-live-score-total>${escapeHtml(
+                      getCurrentGameTotalLine(displayedTotal, game.winningScore)
+                    )}</span>
                   </label>
+                  ${
+                    showLiveScorePreview
+                      ? `
+                        <div class="score-preview" data-score-preview>
+                          <span class="score-preview-total" data-live-score-preview-total>${
+                            livePreview?.hasValue
+                              ? escapeHtml(
+                                  t("current.liveScorePreview", {
+                                    committed: formatNumber(livePreview.committedTotal),
+                                    entered: formatNumber(livePreview.enteredPoints),
+                                    projected: formatNumber(livePreview.projectedTotal)
+                                  })
+                                )
+                              : ""
+                          }</span>
+                          <span class="score-preview-gap" data-live-score-preview-gap>${
+                            livePreview
+                              ? escapeHtml(
+                                  getCurrentGamePreviewLabel(
+                                    livePreview.projectedTotal,
+                                    liveScorePreviewState.leaderTotal,
+                                    liveScorePreviewState.leaderCount
+                                  )
+                                )
+                              : ""
+                          }</span>
+                        </div>
+                      `
+                      : ""
+                  }
                   <input
                     type="text"
                     step="1"
@@ -2317,21 +2510,21 @@ function renderCurrentGameScreen() {
   `;
 
   const statusBannerHtml = () => `
-    <div class="state-banner">
-      <strong>${escapeHtml(gameModeLabel(game.gameMode))}</strong>
-      <span class="muted">${escapeHtml(
-        winner ? `${t("current.finishedTitle")}: ${winner.name}` : t("current.lead")
-      )}</span>
-    </div>
+      <div class="state-banner">
+        <strong>${escapeHtml(gameModeLabel(game.gameMode))}</strong>
+        <span class="muted">${escapeHtml(
+          winner ? `${t("current.finishedTitle")}: ${winnerPresentation.nameText}` : t("current.lead")
+        )}</span>
+      </div>
   `;
 
   const winnerBannerHtml = () =>
     winner
       ? `
       <div class="state-banner">
-        <p class="eyebrow">${escapeHtml(t("current.winnerLabel"))}</p>
-        <strong>${escapeHtml(winner.name)}</strong>
-        <span>${formatNumber(winner.total)} ${escapeHtml(t("common.points"))}</span>
+        <p class="eyebrow">${escapeHtml(winnerPresentation.label)}</p>
+        <strong title="${escapeHtml(winnerPresentation.nameText)}">${escapeHtml(winnerPresentation.nameText)}</strong>
+        <span>${formatNumber(winnerPresentation.total)} ${escapeHtml(t("common.points"))}</span>
         <span class="muted">${escapeHtml(t("current.finishedLead"))}</span>
       </div>
       `
@@ -2507,6 +2700,7 @@ function renderStatsScreen() {
   const game = scopeState.game;
   const isAggregate = scopeState.mode === "all";
   const stats = isAggregate ? buildAllGamesStats(scopeState.games) : buildGameStats(game);
+  const winnerPresentation = !isAggregate ? stats.winnerPresentation : null;
   const roundSummaries =
     !isAggregate && game
       ? stats.rounds.map((round, index) => {
@@ -2622,12 +2816,12 @@ function renderStatsScreen() {
         </div>
       </div>
       ${
-        !isAggregate && stats.winner
+        winnerPresentation && winnerPresentation.winners.length
           ? `
             <div class="state-banner">
-              <p class="eyebrow">${escapeHtml(t("stats.winner"))}</p>
-              <strong title="${escapeHtml(stats.winner.name)}">${escapeHtml(stats.winner.name)}</strong>
-              <span>${formatNumber(stats.winner.total)} ${escapeHtml(t("common.players"))}</span>
+              <p class="eyebrow">${escapeHtml(winnerPresentation.label)}</p>
+              <strong title="${escapeHtml(winnerPresentation.nameText)}">${escapeHtml(winnerPresentation.nameText)}</strong>
+              <span>${formatNumber(winnerPresentation.total)} ${escapeHtml(t("common.points"))}</span>
             </div>
           `
           : ""
@@ -3017,8 +3211,8 @@ function startCelebrationFireworks() {
   state.celebration.rafId = window.requestAnimationFrame(draw);
 }
 
-function showCelebration(winner) {
-  if (!winner || !elements.celebration) {
+function showCelebration(winnerPresentation) {
+  if (!winnerPresentation || !winnerPresentation.winners?.length || !elements.celebration) {
     return;
   }
 
@@ -3028,12 +3222,12 @@ function showCelebration(winner) {
   elements.celebration.setAttribute("aria-hidden", "false");
 
   if (elements.celebrationTitle) {
-    elements.celebrationTitle.textContent = t("celebration.title");
+    elements.celebrationTitle.textContent = winnerPresentation.celebrationTitle || t("celebration.title");
   }
 
   if (elements.celebrationName) {
-    elements.celebrationName.textContent = winner.name;
-    elements.celebrationName.title = winner.name;
+    elements.celebrationName.textContent = winnerPresentation.nameText;
+    elements.celebrationName.title = winnerPresentation.nameText;
   }
 
   startCelebrationFireworks();
@@ -3767,6 +3961,7 @@ function wireGlobalEvents() {
         state.draft.roundScores[playerId] = target.value;
         if (state.data.currentGame) {
           cacheRoundDraft(state.data.currentGame);
+          updateCurrentGameLiveScorePreview();
         }
       }
     } else if (target.id === "round-note") {

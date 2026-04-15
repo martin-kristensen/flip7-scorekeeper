@@ -161,6 +161,7 @@ export interface WinnerSummary extends ScoreboardEntry {
 
 export interface GameProgress {
   scoreboard: ScoreboardEntry[];
+  winners: WinnerSummary[];
   winner: WinnerSummary | null;
   winningRoundId: string | null;
   winningRoundNumber: number | null;
@@ -288,6 +289,7 @@ const isPlayerActiveAt = (player: Player, timestamp: string): boolean => {
 
 export const getGameProgress = (game: Game): GameProgress => {
   const totals = Object.fromEntries(game.players.map((player) => [player.id, 0]));
+  let winners: WinnerSummary[] = [];
   let winner: WinnerSummary | null = null;
   let winningRoundId: string | null = null;
   let winningRoundNumber: number | null = null;
@@ -311,13 +313,16 @@ export const getGameProgress = (game: Game): GameProgress => {
     const leader = scoreboard[0];
 
     if (leader && leader.total >= game.winningScore) {
-      winner = {
-        ...leader,
-        threshold: game.winningScore,
-        roundId: round.id,
-        roundNumber: index + 1,
-        roundCreatedAt: round.createdAt
-      };
+      winners = scoreboard
+        .filter((entry) => entry.total === leader.total)
+        .map((entry) => ({
+          ...entry,
+          threshold: game.winningScore,
+          roundId: round.id,
+          roundNumber: index + 1,
+          roundCreatedAt: round.createdAt
+        }));
+      winner = winners[0] || null;
       winningRoundId = round.id;
       winningRoundNumber = index + 1;
       completedAt = round.createdAt;
@@ -327,6 +332,7 @@ export const getGameProgress = (game: Game): GameProgress => {
 
   return {
     scoreboard: buildScoreboard(game.players, totals),
+    winners,
     winner,
     winningRoundId,
     winningRoundNumber,

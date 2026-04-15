@@ -198,6 +198,7 @@ const toGameResponse = (game: Game | null) => {
     completedAt: game.completedAt || progress.completedAt,
     scoreboard: progress.scoreboard,
     isFinished: winner !== null,
+    winners: progress.winners,
     winner,
     invalidRoundIds: progress.invalidRoundIds,
     winningRoundId: progress.winningRoundId,
