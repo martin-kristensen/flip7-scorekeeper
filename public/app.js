@@ -41,7 +41,9 @@ const TRANSLATIONS = {
       noGame: "No game on the table yet.",
       open: "Open",
       reset: "Reset",
-      loading: "Loading..."
+      loading: "Loading...",
+      dbUnavailable: "The scoreboard is temporarily offline.",
+      retry: "Try again"
     },
     modes: {
       classic: "Flip 7 Classic",
@@ -255,7 +257,9 @@ const TRANSLATIONS = {
       noGame: "Inget spel vid bordet ännu.",
       open: "Öppna",
       reset: "Återställ",
-      loading: "Laddar..."
+      loading: "Laddar...",
+      dbUnavailable: "Poängtablån är tillfälligt offline.",
+      retry: "Försök igen"
     },
     modes: {
       classic: "Flip 7 Classic",
@@ -362,7 +366,7 @@ const TRANSLATIONS = {
       behindLeader: ({ count }) => `${formatNumber(count)} poäng efter`,
       suddenDeath: "Sudden death",
       keepTiedResult: "Behåll oavgjort",
-      suddenDeathInProgress: "Plötslig död pågår",
+      suddenDeathInProgress: "Sudden death in progress",
       liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
       confirmTitle: "Fortsätt till nästa omgång?",
       finishedTitle: "Spelet är slut",
@@ -481,7 +485,8 @@ const state = {
     burstTimers: [],
     presentation: null
   },
-  loading: true
+  loading: true,
+  systemError: null
 };
 
 const elements = {
@@ -499,6 +504,7 @@ const elements = {
   archiveConfirmMessage: document.querySelector("#archive-confirm-message"),
   archiveConfirmContinue: document.querySelector("#archive-confirm-continue"),
   archiveConfirmCancel: document.querySelector("#archive-confirm-cancel"),
+  systemBanner: document.querySelector("#system-banner"),
   celebration: document.querySelector("#celebration"),
   celebrationCanvas: document.querySelector("#celebration-canvas"),
   celebrationTitle: document.querySelector("#celebration-title"),
@@ -887,13 +893,9 @@ function buildAllGamesStats(games) {
 }
 
 function isPlayerActiveAt(player, timestamp) {
-  if (!player?.isActive) {
-    return false;
-  }
-
   const targetTime = Date.parse(timestamp);
   if (!Number.isFinite(targetTime)) {
-    return true;
+    return Boolean(player?.isActive);
   }
 
   const joinedAt = Date.parse(player.joinedAt);
@@ -1085,31 +1087,59 @@ function getStatsScopeState() {
 }
 
 async function api(url, options = {}) {
-  const response = await fetch(url, {
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    ...options
-  });
+  try {
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      ...options
+    });
 
-  const text = await response.text();
-  let payload = {};
+    const contentType = response.headers.get("content-type") || "";
+    const text = await response.text();
+    let payload = {};
 
-  if (text) {
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { error: text };
+    if (text && contentType.includes("application/json")) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = {};
+      }
+    } else if (text && !response.ok) {
+      payload = {
+        error:
+          response.status >= 500 || /<!doctype html>|<html[\s>]/i.test(text)
+            ? t("common.dbUnavailable")
+            : text
+      };
     }
-  }
 
-  if (!response.ok) {
-    throw new Error(typeof payload?.error === "string" ? payload.error : "Something went wrong.");
-  }
+    if (!response.ok) {
+      const message =
+        response.status >= 500
+          ? t("common.dbUnavailable")
+          : typeof payload?.error === "string"
+            ? payload.error
+            : t("common.dbUnavailable");
+      const apiError = new Error(message);
+      apiError.apiError = true;
+      throw apiError;
+    }
 
-  return payload;
+    if (state.systemError) {
+      state.systemError = null;
+    }
+
+    return payload;
+  } catch (error) {
+    if (error instanceof Error && error.apiError) {
+      throw error;
+    }
+
+    throw new Error(t("common.dbUnavailable"));
+  }
 }
 
 const cloneValue = (value) => {
@@ -1737,6 +1767,7 @@ async function refresh() {
   state.data.currentGame = payload.game || null;
   state.data.history = payload.history || [];
   state.loading = false;
+  state.systemError = null;
 
   if (state.data.currentGame?.id !== previousGameId) {
     ensureRoundDraft(state.data.currentGame);
@@ -2330,7 +2361,9 @@ function renderCurrentGameScreen() {
         const roundTotal = round.scores.reduce((sum, score) => sum + score.points, 0);
         const note = round.note.trim() ? round.note.trim() : t("current.noNote");
         const status = isWinningRound
-          ? t("current.winningRound")
+          ? game.suddenDeathStartedAtRoundId
+            ? `${t("current.winningRound")} • ${t("current.suddenDeath")}`
+            : t("current.winningRound")
           : isInvalid
             ? t("current.invalidRound")
             : isSelected
@@ -2409,7 +2442,7 @@ function renderCurrentGameScreen() {
         suddenDeathActive
           ? `<div class="state-banner state-banner-warning"><strong>${escapeHtml(
               t("current.suddenDeathInProgress")
-            )}</strong><span class="muted">${escapeHtml(t("current.suddenDeath"))}</span></div>`
+            )}</strong></div>`
           : ""
       }
       <div class="current-meta-line">
@@ -3064,6 +3097,27 @@ function renderConfirmModal() {
   elements.roundConfirmMessage.textContent = t("current.askContinue");
 }
 
+function renderSystemBanner() {
+  if (!elements.systemBanner) {
+    return;
+  }
+
+  const hasError = Boolean(state.systemError);
+  elements.systemBanner.classList.toggle("hidden", !hasError);
+
+  if (!hasError) {
+    elements.systemBanner.innerHTML = "";
+    return;
+  }
+
+  elements.systemBanner.innerHTML = `
+    <strong>${escapeHtml(state.systemError)}</strong>
+    <button class="secondary-action system-banner-retry" type="button" data-action="retry-load">
+      ${escapeHtml(t("common.retry"))}
+    </button>
+  `;
+}
+
 function renderArchiveConfirmModal() {
   elements.archiveConfirmModal.classList.toggle("hidden", !state.confirmArchiveOpen);
   elements.archiveConfirmModal.setAttribute("aria-hidden", String(!state.confirmArchiveOpen));
@@ -3082,6 +3136,7 @@ function renderDrawer() {
 function renderChrome() {
   applyPreferences();
   renderShellText();
+  renderSystemBanner();
   renderDrawer();
   renderMenu();
   renderConfirmModal();
@@ -4255,6 +4310,10 @@ function wireGlobalEvents() {
 
       if (action === "go-new-game") {
         setRoute("new-game");
+      } else if (action === "retry-load") {
+        state.systemError = null;
+        render();
+        await refresh();
       } else if (action === "go-existing-games") {
         setRoute("existing-games");
       } else if (action === "go-current-game") {
@@ -4388,6 +4447,6 @@ wireGlobalEvents();
 initSettingsWatchers();
 refresh().catch((error) => {
   state.loading = false;
-  showToast(error.message, true);
+  state.systemError = error.message;
   render();
 });

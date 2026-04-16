@@ -274,13 +274,9 @@ const buildScoreboard = (players: Player[], totals: Record<string, number>): Sco
     .sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
 
 const isPlayerActiveAt = (player: Player, timestamp: string): boolean => {
-  if (!player.isActive) {
-    return false;
-  }
-
   const targetTime = Date.parse(timestamp);
   if (!Number.isFinite(targetTime)) {
-    return true;
+    return player.isActive;
   }
 
   const joinedAt = Date.parse(player.joinedAt);
