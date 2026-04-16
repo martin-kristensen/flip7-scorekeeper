@@ -1,10 +1,96 @@
 const STORAGE_KEY = "flip7-preferences";
+const APP_VERSION = "2026.16.01";
 const DEFAULT_SETTINGS = {
   theme: "system",
   language: "en",
   defaultWinningScore: 200,
+  defaultScoreInputMode: "manual",
   hiddenRecentGameIds: []
 };
+
+const FLIP7_BONUS_POINTS = 15;
+const SCORE_INPUT_MODES = {
+  manual: "manual",
+  cards: "cards"
+};
+const FLIP7_NUMBER_CARDS = Array.from({ length: 13 }, (_, index) => index);
+const FLIP7_MODIFIER_CARDS = [
+  { token: "modifier:+2", label: "+2", value: 2 },
+  { token: "modifier:+4", label: "+4", value: 4 },
+  { token: "modifier:+6", label: "+6", value: 6 },
+  { token: "modifier:+8", label: "+8", value: 8 },
+  { token: "modifier:+10", label: "+10", value: 10 },
+  { token: "modifier:x2", label: "x2", multiplier: 2 }
+];
+const FLIP7_CARD_ART_URLS = {
+  "number:0": "/assets/cards/number_0.svg",
+  "number:1": "/assets/cards/number_1.svg",
+  "number:2": "/assets/cards/number_2.svg",
+  "number:3": "/assets/cards/number_3.svg",
+  "number:4": "/assets/cards/number_4.svg",
+  "number:5": "/assets/cards/number_5.svg",
+  "number:6": "/assets/cards/number_6.svg",
+  "number:7": "/assets/cards/number_7.svg",
+  "number:8": "/assets/cards/number_8.svg",
+  "number:9": "/assets/cards/number_9.svg",
+  "number:10": "/assets/cards/number_10.svg",
+  "number:11": "/assets/cards/number_11.svg",
+  "number:12": "/assets/cards/number_12.svg",
+  "modifier:+2": "/assets/cards/bonus_plus_2.svg",
+  "modifier:+4": "/assets/cards/bonus_plus_4.svg",
+  "modifier:+6": "/assets/cards/bonus_plus_6.svg",
+  "modifier:+8": "/assets/cards/bonus_plus_8.svg",
+  "modifier:+10": "/assets/cards/bonus_plus_10.svg",
+  "modifier:x2": "/assets/cards/bonus_times_2.svg"
+};
+
+function normalizeScoreInputMode(value) {
+  return value === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
+}
+
+function getNewGameScoreInputMode(gameMode, fallback = DEFAULT_SETTINGS.defaultScoreInputMode) {
+  if (gameMode !== "classic") {
+    return SCORE_INPUT_MODES.manual;
+  }
+
+  return normalizeScoreInputMode(fallback);
+}
+
+function getFlip7CardArtUrl(token) {
+  return FLIP7_CARD_ART_URLS[token] || "";
+}
+
+function renderFlip7CardButton({ token, label, playerId, selected = false, disabled = false, modifier = false }) {
+  const artUrl = getFlip7CardArtUrl(token);
+
+  return `
+    <button
+      class="score-card-button ${modifier ? "score-card-button-modifier" : ""} ${selected ? "is-selected" : ""}"
+      type="button"
+      data-action="toggle-card-selection"
+      data-player-id="${escapeHtml(playerId)}"
+      data-card-token="${escapeHtml(token)}"
+      aria-label="${escapeHtml(label)}"
+      aria-pressed="${selected ? "true" : "false"}"
+      ${disabled ? "disabled" : ""}
+    >
+      <img class="score-card-art" src="${escapeHtml(artUrl)}" alt="" aria-hidden="true" draggable="false" />
+      <span class="sr-only">${escapeHtml(label)}</span>
+    </button>
+  `;
+}
+
+function preloadFlip7CardArt() {
+  if (typeof Image === "undefined") {
+    return;
+  }
+
+  Object.values(FLIP7_CARD_ART_URLS).forEach((src) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = src;
+  });
+}
 
 const TRANSLATIONS = {
   en: {
@@ -24,6 +110,7 @@ const TRANSLATIONS = {
     common: {
       players: "players",
       player: "player",
+      cards: "cards",
       rounds: "rounds",
       round: "round",
       points: "points",
@@ -74,6 +161,7 @@ const TRANSLATIONS = {
       titleLabel: "Table name (optional)",
       titlePlaceholder: "Friday showdown",
       modeLabel: "Deck / mode",
+      inputModeHelp: "Flip 7 Classic can use cards. Other modes use manual entry.",
       winningScoreLabel: "Target score for this game",
       playersLabel: "Players at the table",
       playerPlaceholder: "Type a player name",
@@ -106,6 +194,16 @@ const TRANSLATIONS = {
       noGame: "No live table yet.",
       winningScore: "Target",
       roundScores: "Round scores",
+      scoreInputMode: "Input mode",
+      manualMode: "Manual",
+      cardMode: "Cards",
+      cardModeHint: "Tap the cards the player has in front of them.",
+      cardsSelected: "{{count}} cards selected",
+      flip7Bonus: "Flip 7 bonus",
+      flip7Achieved: "Flip 7 achieved",
+      clearCards: "Clear hand",
+      previousPlayer: "Previous player",
+      nextPlayer: "Next player",
       gameDetails: "Game details, note & players",
       managePlayers: "Manage players",
       addPlayer: "Add player",
@@ -190,6 +288,8 @@ const TRANSLATIONS = {
       title: "Table settings",
       lead: "Set your defaults and keep the game moving.",
       defaultWinningScore: "Default target score",
+      defaultInputMode: "Default input mode",
+      inputModeHelp: "Flip 7 Classic uses this mode when a new game starts.",
       theme: "Theme",
       language: "Language",
       light: "Light",
@@ -240,6 +340,7 @@ const TRANSLATIONS = {
     common: {
       players: "spelare",
       player: "spelare",
+      cards: "kort",
       rounds: "omgångar",
       round: "omgång",
       points: "poäng",
@@ -290,6 +391,7 @@ const TRANSLATIONS = {
       titleLabel: "Bordets namn (valfritt)",
       titlePlaceholder: "Fredagsduellen",
       modeLabel: "Läge / kortlek",
+      inputModeHelp: "Flip 7 Classic kan använda kort. Andra lägen använder manuell inmatning.",
       winningScoreLabel: "Målpoäng för detta spel",
       playersLabel: "Spelare vid bordet",
       playerPlaceholder: "Skriv en spelare",
@@ -322,6 +424,16 @@ const TRANSLATIONS = {
       noGame: "Inget livebord ännu.",
       winningScore: "Mål",
       roundScores: "Omgångspoäng",
+      scoreInputMode: "Inmatningssätt",
+      manualMode: "Manuellt",
+      cardMode: "Kort",
+      cardModeHint: "Tryck på korten spelaren har framför sig.",
+      cardsSelected: "{{count}} kort valda",
+      flip7Bonus: "Flip 7-bonus",
+      flip7Achieved: "Flip 7 uppnått",
+      clearCards: "Rensa hand",
+      previousPlayer: "Föregående spelare",
+      nextPlayer: "Nästa spelare",
       gameDetails: "Speldetaljer, anteckning och spelare",
       managePlayers: "Hantera spelare",
       addPlayer: "Lägg till spelare",
@@ -406,6 +518,8 @@ const TRANSLATIONS = {
       title: "Bordets inställningar",
       lead: "Ställ in dina val och håll spelet i gång.",
       defaultWinningScore: "Standardmål",
+      defaultInputMode: "Standard inmatningssätt",
+      inputModeHelp: "Flip 7 Classic använder detta läge när ett nytt spel startas.",
       theme: "Tema",
       language: "Språk",
       light: "Ljus",
@@ -441,6 +555,8 @@ const TRANSLATIONS = {
   }
 };
 
+const initialSettings = loadSettings();
+
 const state = {
   route: getRouteFromHash(),
   drawerOpen: false,
@@ -451,12 +567,13 @@ const state = {
     currentGame: null,
     history: []
   },
-  settings: loadSettings(),
+  settings: initialSettings,
   draft: {
     newGame: {
       title: "",
       gameMode: "classic",
-      winningScore: String(DEFAULT_SETTINGS.defaultWinningScore),
+      winningScore: String(initialSettings.defaultWinningScore),
+      scoreInputMode: getNewGameScoreInputMode("classic", initialSettings.defaultScoreInputMode),
       playerInput: "",
       players: []
     },
@@ -465,15 +582,21 @@ const state = {
     currentGameOrder: "entered",
     currentGamePlayerInput: "",
     currentGameFocusTarget: null,
+    scoreInputMode: initialSettings.defaultScoreInputMode,
+    cardPickerPlayerId: null,
     currentRoundKey: "new",
     liveRoundVersion: 0,
     roundNote: "",
     roundScores: {},
+    roundCardSelections: {},
     finishedRoundNoteSaveTimeoutId: null,
     roundDrafts: {
       new: {
         roundNote: "",
-        roundScores: {}
+        roundScores: {},
+        scoreInputMode: initialSettings.defaultScoreInputMode,
+        cardPickerPlayerId: null,
+        roundCardSelections: {}
       }
     }
   },
@@ -553,6 +676,7 @@ function loadSettings() {
         Number.isFinite(Number(parsed.defaultWinningScore)) && Number(parsed.defaultWinningScore) > 0
           ? Number(parsed.defaultWinningScore)
           : DEFAULT_SETTINGS.defaultWinningScore,
+      defaultScoreInputMode: normalizeScoreInputMode(parsed.defaultScoreInputMode),
       hiddenRecentGameIds: Array.isArray(parsed.hiddenRecentGameIds)
         ? parsed.hiddenRecentGameIds.filter((value) => typeof value === "string" && value.length > 0)
         : []
@@ -580,6 +704,32 @@ function getDefaultSettings(language = getPreferredLanguage()) {
     hiddenRecentGameIds: [],
     language
   };
+}
+
+function renderInputModeToggle({ value, action, allowCards = true, ariaLabel }) {
+  const selectedMode = allowCards ? normalizeScoreInputMode(value) : SCORE_INPUT_MODES.manual;
+
+  return `
+    <div class="current-mode-toggle" role="group" aria-label="${escapeHtml(ariaLabel)}">
+      <button
+        class="${selectedMode === SCORE_INPUT_MODES.manual ? "primary-action" : "secondary-action"}"
+        type="button"
+        data-action="${escapeHtml(action)}"
+        data-mode="manual"
+      >
+        ${escapeHtml(t("current.manualMode"))}
+      </button>
+      <button
+        class="${selectedMode === SCORE_INPUT_MODES.cards ? "primary-action" : "secondary-action"}"
+        type="button"
+        data-action="${escapeHtml(action)}"
+        data-mode="cards"
+        ${allowCards ? "" : "disabled"}
+      >
+        ${escapeHtml(t("current.cardMode"))}
+      </button>
+    </div>
+  `;
 }
 
 function t(path, vars = {}) {
@@ -1057,6 +1207,65 @@ function updateCurrentGameLiveScorePreview() {
   });
 }
 
+function syncCurrentGameCardPickerState(game, playerId = state.draft.cardPickerPlayerId) {
+  if (!game || state.route !== "current-game" || getRoundDraftKey() !== "new") {
+    return;
+  }
+
+  const screen = elements.screens.currentGame;
+  if (!screen) {
+    return;
+  }
+
+  const picker = screen.querySelector(".score-card-picker-shell");
+  if (!(picker instanceof HTMLElement)) {
+    return;
+  }
+
+  const effectivePlayerId = typeof playerId === "string" && playerId.length ? playerId : state.draft.cardPickerPlayerId;
+  if (!effectivePlayerId) {
+    return;
+  }
+
+  const selection = getRoundCardSelections(game)[effectivePlayerId] || [];
+  const stats = getFlip7CardSelectionStats(selection);
+
+  const countEl = picker.querySelector("[data-card-picker-count]");
+  if (countEl instanceof HTMLElement) {
+    countEl.textContent = t("current.cardsSelected", { count: stats.numberCount });
+  }
+
+  const summaryEl = picker.querySelector("[data-card-picker-summary]");
+  if (summaryEl instanceof HTMLElement) {
+    summaryEl.textContent = stats.flip7Bonus
+      ? `${formatNumber(stats.total)} ${t("common.points")} • ${t("current.flip7Achieved")}`
+      : `${formatNumber(stats.total)} ${t("common.points")}`;
+  }
+
+  const input = [...screen.querySelectorAll("input[data-player-id]")].find(
+    (entry) => entry instanceof HTMLInputElement && entry.dataset.playerId === effectivePlayerId
+  );
+  if (input instanceof HTMLInputElement) {
+    input.value = String(stats.total);
+  }
+
+  picker.querySelectorAll(".score-card-button[data-card-token]").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    const token = button.dataset.cardToken || "";
+    const isSelected = selection.includes(token);
+    const isNumberCard = token.startsWith("number:");
+
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    button.disabled = isNumberCard ? stats.numberCount === 7 && !isSelected : false;
+  });
+
+  updateCurrentGameLiveScorePreview();
+}
+
 function getStatsScopeState() {
   const games = getStatsGames();
   if (!games.length) {
@@ -1152,6 +1361,321 @@ const cloneValue = (value) => {
 
 const now = () => new Date().toISOString();
 
+function isClassicCardModeGame(game) {
+  return Boolean(game && game.gameMode === "classic");
+}
+
+function getCardInputMode(game, roundKey = getRoundDraftKey()) {
+  if (!isClassicCardModeGame(game) || roundKey !== "new") {
+    return SCORE_INPUT_MODES.manual;
+  }
+
+  return normalizeScoreInputMode(game?.defaultScoreInputMode);
+}
+
+function normalizeCardToken(token) {
+  if (typeof token !== "string" || !token.length) {
+    return null;
+  }
+
+  if (FLIP7_NUMBER_CARDS.some((value) => token === `number:${value}`)) {
+    return token;
+  }
+
+  if (FLIP7_MODIFIER_CARDS.some((card) => card.token === token)) {
+    return token;
+  }
+
+  return null;
+}
+
+function getFlip7CardSelectionStats(selection) {
+  const selectedCards = Array.isArray(selection) ? selection.filter((value) => typeof value === "string") : [];
+  const numberValues = new Set();
+  let numberTotal = 0;
+  let modifierTotal = 0;
+  let hasMultiplier = false;
+
+  for (const token of selectedCards) {
+    if (token.startsWith("number:")) {
+      const value = Number(token.slice("number:".length));
+      if (!Number.isFinite(value) || numberValues.has(value)) {
+        continue;
+      }
+
+      numberValues.add(value);
+      numberTotal += value;
+      continue;
+    }
+
+    if (token === "modifier:x2") {
+      hasMultiplier = true;
+      continue;
+    }
+
+    if (token.startsWith("modifier:+")) {
+      const value = Number(token.slice("modifier:+".length));
+      if (Number.isFinite(value)) {
+        modifierTotal += value;
+      }
+    }
+  }
+
+  const flip7Bonus = numberValues.size === 7 ? FLIP7_BONUS_POINTS : 0;
+  const numberScore = hasMultiplier ? numberTotal * 2 : numberTotal;
+  const total = numberScore + modifierTotal + flip7Bonus;
+
+  return {
+    selectedCards,
+    numberCount: numberValues.size,
+    numberTotal,
+    modifierTotal,
+    hasMultiplier,
+    flip7Bonus,
+    total
+  };
+}
+
+function getRoundCardSelections(game, roundKey = getRoundDraftKey()) {
+  const players = getRoundPlayers(game, roundKey);
+  const selections = state.draft.roundCardSelections || {};
+
+  return Object.fromEntries(
+    players.map((player) => [
+      player.id,
+      Array.isArray(selections[player.id])
+        ? selections[player.id].map(normalizeCardToken).filter((token) => token !== null)
+        : []
+    ])
+  );
+}
+
+function setRoundCardSelection(game, playerId, selection, roundKey = getRoundDraftKey()) {
+  const key = getRoundDraftKey(roundKey);
+  if (key !== "new" || !game || !playerId) {
+    return null;
+  }
+
+  const normalized = Array.isArray(selection) ? selection.map(normalizeCardToken).filter((token) => token !== null) : [];
+  state.draft.roundCardSelections = {
+    ...(state.draft.roundCardSelections || {}),
+    [playerId]: normalized
+  };
+  const stats = getFlip7CardSelectionStats(normalized);
+  state.draft.roundScores = {
+    ...state.draft.roundScores,
+    [playerId]: String(stats.total)
+  };
+
+  cacheRoundDraft(game, key);
+  return stats;
+}
+
+function toggleRoundCardSelection(game, playerId, token, roundKey = getRoundDraftKey()) {
+  const key = getRoundDraftKey(roundKey);
+  if (key !== "new" || !game || !playerId) {
+    return null;
+  }
+
+  const normalizedToken = normalizeCardToken(token);
+  if (!normalizedToken) {
+    return null;
+  }
+
+  const selections = getRoundCardSelections(game, key);
+  const currentSelection = Array.isArray(selections[playerId]) ? [...selections[playerId]] : [];
+  const currentStats = getFlip7CardSelectionStats(currentSelection);
+  const existingIndex = currentSelection.indexOf(normalizedToken);
+
+  if (existingIndex >= 0) {
+    currentSelection.splice(existingIndex, 1);
+  } else {
+    const isNumberCard = normalizedToken.startsWith("number:");
+    if (isNumberCard && currentStats.numberCount === 7) {
+      return currentStats;
+    }
+
+    currentSelection.push(normalizedToken);
+  }
+
+  const nextStats = setRoundCardSelection(game, playerId, currentSelection, key);
+
+  return nextStats;
+}
+
+function clearRoundCardSelection(game, playerId, roundKey = getRoundDraftKey()) {
+  return setRoundCardSelection(game, playerId, [], roundKey);
+}
+
+function renderFlip7CardPicker(player, selection) {
+  const stats = getFlip7CardSelectionStats(selection);
+  const selectionLabel = stats.flip7Bonus
+    ? t("current.flip7Achieved")
+    : t("current.cardsSelected", { count: stats.selectedCards.length });
+  const summaryLabel = `${formatNumber(stats.total)} ${t("common.points")}`;
+  const isLocked = stats.numberCount === 7;
+
+  return `
+    <div class="score-card-picker">
+      <div class="score-card-picker-head">
+        <span class="muted">${escapeHtml(t("current.cardModeHint"))}</span>
+        <span class="pill ${stats.flip7Bonus ? "pill-success" : "pill-muted"}">${escapeHtml(selectionLabel)}</span>
+      </div>
+      <div class="score-card-picker-grid score-card-picker-grid-numbers">
+        ${FLIP7_NUMBER_CARDS.map((value) => {
+          const token = `number:${value}`;
+          const isSelected = selection.includes(token);
+          return renderFlip7CardButton({
+            token,
+            label: String(value),
+            playerId: player.id,
+            selected: isSelected,
+            disabled: isLocked && !isSelected
+          });
+        }).join("")}
+      </div>
+      <div class="score-card-picker-divider"></div>
+      <div class="score-card-picker-grid score-card-picker-grid-modifiers">
+        ${FLIP7_MODIFIER_CARDS.map((card) => {
+          const isSelected = selection.includes(card.token);
+          return renderFlip7CardButton({
+            token: card.token,
+            label: card.label,
+            playerId: player.id,
+            selected: isSelected,
+            disabled: isLocked && !isSelected,
+            modifier: true
+          });
+        }).join("")}
+      </div>
+      <div class="score-card-picker-footer">
+        <span class="score-card-picker-summary">${escapeHtml(summaryLabel)}</span>
+        <button
+          class="secondary-action score-card-clear"
+          type="button"
+          data-action="clear-card-selection"
+          data-player-id="${escapeHtml(player.id)}"
+        >
+          ${escapeHtml(t("current.clearCards"))}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function getCardPickerNavigatorState(game) {
+  const players = getRoundPlayers(game);
+  const currentPlayerId = state.draft.cardPickerPlayerId || players[0]?.id || null;
+  const currentIndex = players.findIndex((player) => player.id === currentPlayerId);
+  const selectedPlayer = currentIndex >= 0 ? players[currentIndex] : players[0] || null;
+  const previousPlayer = currentIndex > 0 ? players[currentIndex - 1] : null;
+  const nextPlayer = currentIndex >= 0 && currentIndex < players.length - 1 ? players[currentIndex + 1] : null;
+  const selection = selectedPlayer ? getRoundCardSelections(game)[selectedPlayer.id] || [] : [];
+  const stats = getFlip7CardSelectionStats(selection);
+
+  return {
+    players,
+    currentPlayerId: selectedPlayer?.id || null,
+    currentPlayerName: selectedPlayer?.name || "",
+    currentPlayerIndex: currentIndex >= 0 ? currentIndex : 0,
+    currentPlayerCount: players.length,
+    previousPlayerId: previousPlayer?.id || null,
+    nextPlayerId: nextPlayer?.id || null,
+    stats
+  };
+}
+
+function renderCardPickerPanel(game) {
+  const navigator = getCardPickerNavigatorState(game);
+  if (!navigator.currentPlayerId) {
+    return "";
+  }
+
+  const player = navigator.players.find((entry) => entry.id === navigator.currentPlayerId) || navigator.players[0];
+  if (!player) {
+    return "";
+  }
+
+  const selection = getRoundCardSelections(game)[player.id] || [];
+  const stats = getFlip7CardSelectionStats(selection);
+
+  return `
+    <div class="score-card-picker-shell">
+      <div class="current-round-nav current-player-nav" role="group" aria-label="${escapeHtml(t("current.cardMode"))}">
+        <button
+          class="round-nav-button"
+          type="button"
+          data-action="move-card-player"
+          data-direction="prev"
+          ${navigator.previousPlayerId ? "" : "disabled"}
+          aria-label="${escapeHtml(t("current.previousPlayer"))}"
+        >
+          ←
+        </button>
+        <div class="current-round-nav-copy">
+          <strong title="${escapeHtml(navigator.currentPlayerName)}">${escapeHtml(navigator.currentPlayerName)}</strong>
+          <span data-card-picker-count>${escapeHtml(t("current.cardsSelected", { count: stats.numberCount }))} · ${formatNumber(
+            stats.total
+          )} ${escapeHtml(t("common.points"))}</span>
+        </div>
+        <button
+          class="round-nav-button"
+          type="button"
+          data-action="move-card-player"
+          data-direction="next"
+          ${navigator.nextPlayerId ? "" : "disabled"}
+          aria-label="${escapeHtml(t("current.nextPlayer"))}"
+        >
+          →
+        </button>
+      </div>
+      <p class="muted current-card-hint">${escapeHtml(t("current.cardModeHint"))}</p>
+      <div class="score-card-picker-grid score-card-picker-grid-numbers">
+        ${FLIP7_NUMBER_CARDS.map((value) => {
+          const token = `number:${value}`;
+          const isSelected = selection.includes(token);
+          return renderFlip7CardButton({
+            token,
+            label: String(value),
+            playerId: player.id,
+            selected: isSelected,
+            disabled: stats.numberCount === 7 && !isSelected
+          });
+        }).join("")}
+      </div>
+      <div class="score-card-picker-divider"></div>
+      <div class="score-card-picker-grid score-card-picker-grid-modifiers">
+        ${FLIP7_MODIFIER_CARDS.map((card) => {
+          const isSelected = selection.includes(card.token);
+          return renderFlip7CardButton({
+            token: card.token,
+            label: card.label,
+            playerId: player.id,
+            selected: isSelected,
+            disabled: false,
+            modifier: true
+          });
+        }).join("")}
+      </div>
+      <div class="score-card-picker-footer">
+        <span class="score-card-picker-summary" data-card-picker-summary>${escapeHtml(
+          stats.flip7Bonus
+            ? `${formatNumber(stats.total)} ${t("common.points")} • ${t("current.flip7Achieved")}`
+            : `${formatNumber(stats.total)} ${t("common.points")}`
+        )}</span>
+        <button
+          class="secondary-action score-card-clear"
+          type="button"
+          data-action="clear-card-selection"
+          data-player-id="${escapeHtml(player.id)}"
+        >
+          ${escapeHtml(t("current.clearCards"))}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function snapshotAppState() {
   return {
     data: {
@@ -1193,7 +1717,7 @@ function makePlayers(playerNames) {
   }));
 }
 
-function makeNewGame({ title, gameMode, winningScore, playerNames }) {
+function makeNewGame({ title, gameMode, winningScore, defaultScoreInputMode, playerNames }) {
   const players = makePlayers(playerNames);
   const timestamp = now();
 
@@ -1202,6 +1726,8 @@ function makeNewGame({ title, gameMode, winningScore, playerNames }) {
     title: title.trim() || "Flip 7 Game",
     gameMode,
     winningScore,
+    defaultScoreInputMode:
+      gameMode === "classic" ? normalizeScoreInputMode(defaultScoreInputMode) : SCORE_INPUT_MODES.manual,
     createdAt: timestamp,
     updatedAt: timestamp,
     completedAt: null,
@@ -1217,6 +1743,7 @@ function makeRestartedGame(game, title = game.title) {
     title,
     gameMode: game.gameMode,
     winningScore: game.winningScore,
+    defaultScoreInputMode: game.defaultScoreInputMode,
     playerNames: game.players.map((player) => player.name)
   });
 }
@@ -1327,9 +1854,13 @@ function getRoundDraftKey(roundKey = state.draft.currentRoundKey) {
 
 function createBlankRoundDraft(game, roundKey = getRoundDraftKey()) {
   const players = getRoundPlayers(game, roundKey);
+  const scoreInputMode = getCardInputMode(game, roundKey);
   return {
     roundNote: "",
-    roundScores: Object.fromEntries(players.map((player) => [player.id, ""]))
+    roundScores: Object.fromEntries(players.map((player) => [player.id, ""])),
+    scoreInputMode,
+    cardPickerPlayerId: scoreInputMode === SCORE_INPUT_MODES.cards ? players[0]?.id || null : null,
+    roundCardSelections: Object.fromEntries(players.map((player) => [player.id, []]))
   };
 }
 
@@ -1351,15 +1882,38 @@ function createRoundDraftFromRound(game, round) {
 function normalizeRoundDraft(game, draft, roundKey = getRoundDraftKey()) {
   const players = getRoundPlayers(game, roundKey);
   const nextScores = {};
+  const nextCardSelections = {};
   for (const player of players) {
     const currentValue = draft?.roundScores?.[player.id];
     nextScores[player.id] =
       currentValue === "" || currentValue === null || currentValue === undefined ? "" : String(currentValue);
+
+    const currentSelection = Array.isArray(draft?.roundCardSelections?.[player.id])
+      ? draft.roundCardSelections[player.id]
+      : [];
+    const normalizedSelection = currentSelection.map(normalizeCardToken).filter((token) => token !== null);
+    nextCardSelections[player.id] = normalizedSelection;
   }
+
+  const isLiveDraft = roundKey === "new" && isClassicCardModeGame(game);
+  const currentMode =
+    isLiveDraft && draft?.scoreInputMode === SCORE_INPUT_MODES.cards
+      ? SCORE_INPUT_MODES.cards
+      : SCORE_INPUT_MODES.manual;
+  const requestedPickerId = typeof draft?.cardPickerPlayerId === "string" ? draft.cardPickerPlayerId : null;
+  const nextPickerId =
+    currentMode === SCORE_INPUT_MODES.cards && players.some((player) => player.id === requestedPickerId)
+      ? requestedPickerId
+      : currentMode === SCORE_INPUT_MODES.cards
+        ? players[0]?.id || null
+        : null;
 
   return {
     roundNote: draft?.roundNote ? String(draft.roundNote) : "",
-    roundScores: nextScores
+    roundScores: nextScores,
+    scoreInputMode: currentMode,
+    cardPickerPlayerId: nextPickerId,
+    roundCardSelections: nextCardSelections
   };
 }
 
@@ -1367,22 +1921,32 @@ function cacheRoundDraft(game, roundKey = state.draft.currentRoundKey) {
   const key = getRoundDraftKey(roundKey);
   const draft = normalizeRoundDraft(game, {
     roundNote: state.draft.roundNote,
-    roundScores: state.draft.roundScores
+    roundScores: state.draft.roundScores,
+    scoreInputMode: state.draft.scoreInputMode,
+    cardPickerPlayerId: state.draft.cardPickerPlayerId,
+    roundCardSelections: state.draft.roundCardSelections
   }, key);
   state.draft.roundDrafts[key] = draft;
   return draft;
 }
 
-function resetLiveRoundDraft(game) {
+function resetLiveRoundDraft(game, { scoreInputMode } = {}) {
   if (!game) {
     return;
   }
 
   const blankDraft = createBlankRoundDraft(game, "new");
+  if (scoreInputMode === SCORE_INPUT_MODES.cards && isClassicCardModeGame(game)) {
+    blankDraft.scoreInputMode = SCORE_INPUT_MODES.cards;
+    blankDraft.cardPickerPlayerId = blankDraft.cardPickerPlayerId || getRoundPlayers(game, "new")[0]?.id || null;
+  }
   state.draft.liveRoundVersion += 1;
   state.draft.currentRoundKey = "new";
   state.draft.roundNote = blankDraft.roundNote;
   state.draft.roundScores = blankDraft.roundScores;
+  state.draft.scoreInputMode = blankDraft.scoreInputMode;
+  state.draft.cardPickerPlayerId = blankDraft.cardPickerPlayerId;
+  state.draft.roundCardSelections = blankDraft.roundCardSelections;
   state.draft.roundDrafts.new = blankDraft;
 }
 
@@ -1391,10 +1955,16 @@ function loadRoundDraft(game, roundKey = "new") {
     state.draft.currentRoundKey = "new";
     state.draft.roundNote = "";
     state.draft.roundScores = {};
+    state.draft.scoreInputMode = SCORE_INPUT_MODES.manual;
+    state.draft.cardPickerPlayerId = null;
+    state.draft.roundCardSelections = {};
     state.draft.roundDrafts = {
       new: {
         roundNote: "",
-        roundScores: {}
+        roundScores: {},
+        scoreInputMode: SCORE_INPUT_MODES.manual,
+        cardPickerPlayerId: null,
+        roundCardSelections: {}
       }
     };
     return;
@@ -1410,6 +1980,9 @@ function loadRoundDraft(game, roundKey = "new") {
   state.draft.currentRoundKey = key;
   state.draft.roundNote = normalized.roundNote;
   state.draft.roundScores = normalized.roundScores;
+  state.draft.scoreInputMode = normalized.scoreInputMode;
+  state.draft.cardPickerPlayerId = normalized.cardPickerPlayerId;
+  state.draft.roundCardSelections = normalized.roundCardSelections;
   state.draft.roundDrafts[key] = normalized;
 }
 
@@ -1444,16 +2017,22 @@ function isRoundDraftLive() {
   return getRoundDraftKey() === "new";
 }
 
-function getRoundDraftPayload(game) {
+function getRoundDraftPayload(game, { includeDefaultScoreInputMode = false } = {}) {
   const scores = getRoundPlayers(game).map((player) => ({
     playerId: player.id,
     points: Number(state.draft.roundScores[player.id] || 0)
   }));
 
-  return {
+  const payload = {
     note: state.draft.roundNote.trim(),
     scores
   };
+
+  if (includeDefaultScoreInputMode && game?.gameMode === "classic") {
+    payload.defaultScoreInputMode = normalizeScoreInputMode(state.draft.scoreInputMode);
+  }
+
+  return payload;
 }
 
 function isCurrentRoundFinished(game) {
@@ -1641,6 +2220,8 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
   }
 
   const selectedRound = getSelectedRound(game);
+  const nextLiveScoreInputMode = state.draft.scoreInputMode;
+  const shouldPersistLiveInputMode = !selectedRound && game.gameMode === "classic";
 
   if (!force && !isRoundDraftChanged(game)) {
     if (nextRoundKey) {
@@ -1654,7 +2235,9 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
   }
 
   const snapshot = snapshotAppState();
-  const requestPayload = getRoundDraftPayload(game);
+  const requestPayload = getRoundDraftPayload(game, {
+    includeDefaultScoreInputMode: shouldPersistLiveInputMode
+  });
   const optimisticRound = {
     id: selectedRound?.id || crypto.randomUUID(),
     createdAt: selectedRound?.createdAt || now(),
@@ -1672,6 +2255,8 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
         ...game,
         updatedAt: now(),
         completedAt: null,
+        defaultScoreInputMode:
+          shouldPersistLiveInputMode ? normalizeScoreInputMode(nextLiveScoreInputMode) : game.defaultScoreInputMode,
         rounds: [...game.rounds, optimisticRound]
       };
   const decoratedOptimistic = decorateGame(optimisticGame);
@@ -1682,7 +2267,7 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
 
   state.data.currentGame = decoratedOptimistic;
   if (nextRoundKey === "new" && !decoratedOptimistic.isFinished) {
-    resetLiveRoundDraft(decoratedOptimistic);
+    resetLiveRoundDraft(decoratedOptimistic, { scoreInputMode: nextLiveScoreInputMode });
   }
   loadRoundDraft(decoratedOptimistic, optimisticNextKey);
   state.route = "current-game";
@@ -1702,7 +2287,7 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
           ? payload.game.winningRoundId || nextRoundKey
           : nextRoundKey;
       if (nextRoundKey === "new" && !payload.game.isFinished) {
-        resetLiveRoundDraft(payload.game);
+        resetLiveRoundDraft(payload.game, { scoreInputMode: nextLiveScoreInputMode });
       }
       loadRoundDraft(payload.game, responseNextKey);
     }
@@ -1770,7 +2355,11 @@ async function refresh() {
   state.systemError = null;
 
   if (state.data.currentGame?.id !== previousGameId) {
-    ensureRoundDraft(state.data.currentGame);
+    if (state.data.currentGame && !state.data.currentGame.isFinished) {
+      resetLiveRoundDraft(state.data.currentGame);
+    } else {
+      ensureRoundDraft(state.data.currentGame);
+    }
   } else if (state.data.currentGame) {
     ensureRoundDraft(state.data.currentGame);
   }
@@ -2074,6 +2663,22 @@ function renderNewGameScreen() {
               .join("")}
           </select>
         </div>
+        <div class="field">
+          <span class="field-label">${escapeHtml(t("current.scoreInputMode"))}</span>
+          ${
+            draft.gameMode === "classic"
+              ? `
+                ${renderInputModeToggle({
+                  value: draft.scoreInputMode,
+                  action: "set-new-game-input-mode",
+                  allowCards: true,
+                  ariaLabel: t("current.scoreInputMode")
+                })}
+                <div class="helper">${escapeHtml(t("newGame.inputModeHelp"))}</div>
+              `
+              : ""
+          }
+        </div>
         <label class="field">
           <span class="field-label">${escapeHtml(t("newGame.winningScoreLabel"))}</span>
           <input
@@ -2307,11 +2912,18 @@ function renderCurrentGameScreen() {
   const selectedRound = getSelectedRound(game);
   const draftForSelectedRound =
     state.draft.roundDrafts[currentRoundKey] || createRoundDraftFromRound(game, selectedRound);
+  const scoreInputMode = draftForSelectedRound.scoreInputMode || SCORE_INPUT_MODES.manual;
+  const cardModeEnabled = Boolean(canEditScores && currentRoundKey === "new" && isClassicCardModeGame(game));
   const showLiveScorePreview = currentRoundKey === "new" && canEditScores;
+  const currentCardPickerPlayerId = draftForSelectedRound.cardPickerPlayerId || null;
+  const cardPickerNavigator = getCardPickerNavigatorState(game);
   const liveScorePreviewState = showLiveScorePreview
     ? getCurrentGameLiveScorePreview(game, draftForSelectedRound.roundScores)
     : null;
   const roundNoteLabel = game.isFinished ? t("current.finalNote") : t("current.roundNote");
+  const cardSelectionSignature = Object.entries(draftForSelectedRound.roundCardSelections || {})
+    .map(([playerId, selection]) => `${playerId}:${Array.isArray(selection) ? selection.join(",") : ""}`)
+    .join("|");
   const scoresSignature = orderedPlayers
     .map((player) => `${player.id}:${draftForSelectedRound.roundScores[player.id] ?? ""}`)
     .join("|");
@@ -2320,8 +2932,9 @@ function renderCurrentGameScreen() {
     currentRoundKey,
     currentRoundKey === "new" ? `live:${state.draft.liveRoundVersion}` : "saved",
     state.draft.currentGameOrder,
-    canEditScores ? "edit" : "locked",
-    scoresSignature
+    scoreInputMode,
+    currentCardPickerPlayerId || "none",
+    canEditScores ? "edit" : "locked"
   ].join("::");
   const detailsKey = [
     game.id,
@@ -2329,6 +2942,8 @@ function renderCurrentGameScreen() {
     roundNoteLabel,
     draftForSelectedRound.roundNote,
     canEditNote ? "note-editable" : "note-locked",
+    scoreInputMode,
+    currentCardPickerPlayerId || "none",
     game.isFinished ? `winner:${winner?.roundId || "none"}` : "live",
     suddenDeathActive ? "sudden-death" : "normal",
     progress.invalidRoundIds.join(","),
@@ -2337,6 +2952,8 @@ function renderCurrentGameScreen() {
     game.rounds.length,
     game.updatedAt,
     canManagePlayers ? "roster-live" : "roster-locked",
+    scoreInputMode,
+    currentCardPickerPlayerId || "none",
     game.players.map((player) => `${player.id}:${player.isActive ? "1" : "0"}:${player.name}`).join("|")
   ].join("::");
   const headerKey = [
@@ -2528,13 +3145,20 @@ function renderCurrentGameScreen() {
             .map((player, index) => {
               const total = progress.scoreboard.find((entry) => entry.playerId === player.id)?.total ?? 0;
               const isEliminated = suddenDeathActive && !player.isActive;
+              const roundDraftValue = Number(draftForSelectedRound.roundScores[player.id] || 0);
               const value = isEliminated ? "" : draftForSelectedRound.roundScores[player.id] ?? "";
               const livePreview = liveScorePreviewState?.previews.get(player.id) || null;
-              const displayedTotal = livePreview?.hasValue ? livePreview.projectedTotal : total;
+              const scoreInputDisabled = !canEditScores || (cardModeEnabled && scoreInputMode === SCORE_INPUT_MODES.cards);
+              const displayedTotal = livePreview?.hasValue
+                ? livePreview.projectedTotal
+                : currentRoundKey === "new"
+                  ? total + roundDraftValue
+                  : total;
               return `
-                <div class="score-row ${showLiveScorePreview ? "has-live-score-preview" : ""} ${isEliminated ? "is-eliminated" : ""}" data-player-id="${escapeHtml(
-                  player.id
-                )}">
+                <div
+                  class="score-row ${showLiveScorePreview ? "has-live-score-preview" : ""} ${isEliminated ? "is-eliminated" : ""}"
+                  data-player-id="${escapeHtml(player.id)}"
+                >
                   <label class="field">
                     <span class="player-name" title="${escapeHtml(player.name)}">${escapeHtml(player.name)}</span>
                     <span class="muted" data-live-score-total>${escapeHtml(
@@ -2585,7 +3209,7 @@ function renderCurrentGameScreen() {
                           data-player-id="${escapeHtml(player.id)}"
                           data-player-index="${index}"
                           value="${escapeHtml(value)}"
-                          ${canEditScores ? "" : "disabled"}
+                          ${scoreInputDisabled ? "disabled" : ""}
                         />
                       `
                   }
@@ -2595,6 +3219,11 @@ function renderCurrentGameScreen() {
             .join("")}
         </div>
       </div>
+      ${
+        cardModeEnabled && scoreInputMode === SCORE_INPUT_MODES.cards
+          ? renderCardPickerPanel(game)
+          : ""
+      }
       <div class="sticky-actions">
         ${
           winner
@@ -2620,6 +3249,33 @@ function renderCurrentGameScreen() {
       >${escapeHtml(draftForSelectedRound.roundNote)}</textarea>
     </label>
   `;
+
+  const roundInputSettingsHtml = () =>
+    cardModeEnabled
+      ? `
+        <div class="stack-tight current-details-settings">
+          <strong>${escapeHtml(t("current.scoreInputMode"))}</strong>
+          <div class="current-mode-toggle" role="group" aria-label="${escapeHtml(t("current.scoreInputMode"))}">
+            <button
+              class="${scoreInputMode === SCORE_INPUT_MODES.manual ? "primary-action" : "secondary-action"}"
+              type="button"
+              data-action="set-score-input-mode"
+              data-mode="manual"
+            >
+              ${escapeHtml(t("current.manualMode"))}
+            </button>
+            <button
+              class="${scoreInputMode === SCORE_INPUT_MODES.cards ? "primary-action" : "secondary-action"}"
+              type="button"
+              data-action="set-score-input-mode"
+              data-mode="cards"
+            >
+              ${escapeHtml(t("current.cardMode"))}
+            </button>
+          </div>
+        </div>
+      `
+      : "";
 
   const statusBannerHtml = () => `
       <div class="state-banner">
@@ -2750,6 +3406,7 @@ function renderCurrentGameScreen() {
       <div class="stack current-details-body">
         ${statusBannerHtml()}
         ${winnerBannerHtml()}
+        ${roundInputSettingsHtml()}
         ${rosterHtml()}
         ${noteHtml()}
         ${renderRoundHistory()}
@@ -3016,6 +3673,16 @@ function renderSettingsScreen() {
             value="${escapeHtml(state.settings.defaultWinningScore)}"
           />
         </label>
+        <div class="field">
+          <span class="field-label">${escapeHtml(t("settings.defaultInputMode"))}</span>
+          ${renderInputModeToggle({
+            value: state.settings.defaultScoreInputMode,
+            action: "set-settings-input-mode",
+            allowCards: true,
+            ariaLabel: t("settings.defaultInputMode")
+          })}
+          <div class="helper">${escapeHtml(t("settings.inputModeHelp"))}</div>
+        </div>
         <label class="field">
           <span class="field-label">${escapeHtml(t("settings.theme"))}</span>
           <select id="settings-theme">
@@ -3042,6 +3709,9 @@ function renderSettingsScreen() {
           </select>
         </label>
       </form>
+      <p class="settings-version" aria-label="${escapeHtml(`Version ${APP_VERSION}`)}">
+        ${escapeHtml(`Version ${APP_VERSION}`)}
+      </p>
     </section>
   `;
 }
@@ -3450,9 +4120,18 @@ function resetNewGameDraft() {
     title: "",
     gameMode: "classic",
     winningScore: String(state.settings.defaultWinningScore),
+    scoreInputMode: getNewGameScoreInputMode("classic", state.settings.defaultScoreInputMode),
     playerInput: "",
     players: []
   };
+}
+
+function setNewGameMode(mode) {
+  state.draft.newGame.gameMode = mode === "vengeance" || mode === "mixed" ? mode : "classic";
+  state.draft.newGame.scoreInputMode =
+    state.draft.newGame.gameMode === "classic"
+      ? normalizeScoreInputMode(state.settings.defaultScoreInputMode)
+      : SCORE_INPUT_MODES.manual;
 }
 
 function seedNewGameFromPlayers(players, game) {
@@ -3460,6 +4139,10 @@ function seedNewGameFromPlayers(players, game) {
     title: game?.title ? `${game.title} ${t("common.current")}` : "",
     gameMode: game?.gameMode || "classic",
     winningScore: String(game?.winningScore || state.settings.defaultWinningScore),
+    scoreInputMode: getNewGameScoreInputMode(
+      game?.gameMode || "classic",
+      game?.defaultScoreInputMode || state.settings.defaultScoreInputMode
+    ),
     playerInput: "",
     players: players.map((player) => player.name)
   };
@@ -3486,6 +4169,7 @@ async function startGame() {
       title,
       gameMode,
       winningScore: normalizedWinningScore,
+      defaultScoreInputMode: state.draft.newGame.scoreInputMode,
       playerNames: players
     });
 
@@ -3494,10 +4178,7 @@ async function startGame() {
     resetNewGameDraft();
     state.draft.currentRoundKey = "new";
     state.draft.roundDrafts = {
-      new: {
-        roundNote: "",
-        roundScores: {}
-      }
+      new: createBlankRoundDraft(state.data.currentGame, "new")
     };
     state.draft.currentGamePlayerInput = "";
     ensureRoundDraft(state.data.currentGame);
@@ -3512,7 +4193,8 @@ async function startGame() {
         title,
         players,
         gameMode,
-        winningScore: normalizedWinningScore
+        winningScore: normalizedWinningScore,
+        defaultScoreInputMode: state.draft.newGame.scoreInputMode
       })
     });
 
@@ -3557,10 +4239,7 @@ async function playAgain() {
     state.draft.currentGamePlayerInput = "";
     state.draft.currentRoundKey = "new";
     state.draft.roundDrafts = {
-      new: {
-        roundNote: "",
-        roundScores: {}
-      }
+      new: createBlankRoundDraft(state.data.currentGame, "new")
     };
     ensureRoundDraft(state.data.currentGame);
     state.route = "current-game";
@@ -3640,6 +4319,12 @@ function focusCurrentScoreInput(target = null) {
       : document.querySelector('#current-game-form input[data-player-id]');
 
   if (!(input instanceof HTMLInputElement)) {
+    const cardButton = document.querySelector('#current-game-form [data-action="toggle-card-picker"]');
+    if (cardButton instanceof HTMLButtonElement) {
+      requestAnimationFrame(() => {
+        cardButton.focus({ preventScroll: true });
+      });
+    }
     return;
   }
 
@@ -3955,7 +4640,11 @@ async function resumeGame(gameId) {
     );
     state.data.currentGame = gameToResume;
     state.draft.currentGamePlayerInput = "";
-    ensureRoundDraft(state.data.currentGame);
+    if (state.data.currentGame && !state.data.currentGame.isFinished) {
+      resetLiveRoundDraft(state.data.currentGame);
+    } else {
+      ensureRoundDraft(state.data.currentGame);
+    }
     state.route = "current-game";
     window.location.hash = "current-game";
     render();
@@ -3966,7 +4655,11 @@ async function resumeGame(gameId) {
     if (payload.history) {
       state.data.history = payload.history;
     }
-    ensureRoundDraft(state.data.currentGame);
+    if (state.data.currentGame && !state.data.currentGame.isFinished) {
+      resetLiveRoundDraft(state.data.currentGame);
+    } else {
+      ensureRoundDraft(state.data.currentGame);
+    }
     showToast(t("toast.gameResumed"));
     render();
   } catch (error) {
@@ -4167,7 +4860,7 @@ function wireGlobalEvents() {
     } else if (target.id === "new-player-input") {
       state.draft.newGame.playerInput = target.value;
     } else if (target.id === "new-game-mode") {
-      state.draft.newGame.gameMode = target.value === "vengeance" || target.value === "mixed" ? target.value : "classic";
+      setNewGameMode(target.value);
     } else if (target.id === "new-game-winning-score") {
       state.draft.newGame.winningScore = target.value;
     } else if (target.id === "current-player-input") {
@@ -4189,7 +4882,11 @@ function wireGlobalEvents() {
           queueFinishedRoundNoteSave();
         }
       }
-    } else if (target.id === "settings-winning-score" || target.id === "settings-theme" || target.id === "settings-language") {
+    } else if (
+      target.id === "settings-winning-score" ||
+      target.id === "settings-theme" ||
+      target.id === "settings-language"
+    ) {
       updateSettingsFromControls(false);
     }
   });
@@ -4205,6 +4902,12 @@ function wireGlobalEvents() {
       if (state.draft.statsScope !== "pick") {
         state.draft.statsGameId = "";
       }
+      render();
+      return;
+    }
+
+    if (target.id === "new-game-mode") {
+      setNewGameMode(target.value);
       render();
       return;
     }
@@ -4296,6 +4999,11 @@ function wireGlobalEvents() {
       const gameId = actionTarget.dataset.gameId;
       const playerIndex = Number(actionTarget.dataset.playerIndex);
       const swipeCard = actionTarget.closest("[data-swipe-delete-card]");
+      const game = state.data.currentGame;
+      const canUseCardMode = Boolean(game && !game.isFinished && getRoundDraftKey() === "new" && isClassicCardModeGame(game));
+      const scoreInputMode = state.draft.scoreInputMode;
+      const currentCardPickerPlayerId = state.draft.cardPickerPlayerId;
+      const activePlayers = game ? getActiveGamePlayers(game) : [];
 
       if (
         gameId &&
@@ -4341,6 +5049,23 @@ function wireGlobalEvents() {
         await openGameFromList(gameId);
       } else if (action === "set-new-game-mode" && actionTarget.dataset.mode) {
         state.draft.newGame.gameMode = actionTarget.dataset.mode;
+        state.draft.newGame.scoreInputMode =
+          state.draft.newGame.gameMode === "classic"
+            ? normalizeScoreInputMode(state.settings.defaultScoreInputMode)
+            : SCORE_INPUT_MODES.manual;
+        render();
+      } else if (action === "set-new-game-input-mode" && actionTarget.dataset.mode) {
+        if (state.draft.newGame.gameMode !== "classic") {
+          return;
+        }
+
+        state.draft.newGame.scoreInputMode =
+          actionTarget.dataset.mode === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
+        render();
+      } else if (action === "set-settings-input-mode" && actionTarget.dataset.mode) {
+        state.settings.defaultScoreInputMode =
+          actionTarget.dataset.mode === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
+        saveSettings();
         render();
       } else if (action === "add-player") {
         addDraftPlayer();
@@ -4355,6 +5080,74 @@ function wireGlobalEvents() {
       } else if (action === "set-current-order" && actionTarget.dataset.order) {
         state.draft.currentGameOrder = actionTarget.dataset.order === "leader" ? "leader" : "entered";
         render();
+      } else if (action === "move-card-player" && actionTarget.dataset.direction) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const navigator = getCardPickerNavigatorState(game);
+        const targetPlayerId =
+          actionTarget.dataset.direction === "prev" ? navigator.previousPlayerId : navigator.nextPlayerId;
+        if (!targetPlayerId) {
+          return;
+        }
+
+        state.draft.cardPickerPlayerId = targetPlayerId;
+        if (state.data.currentGame) {
+          cacheRoundDraft(state.data.currentGame);
+        }
+        render();
+      } else if (action === "set-score-input-mode" && actionTarget.dataset.mode) {
+        if (!canUseCardMode) {
+          return;
+        }
+
+        state.draft.scoreInputMode =
+          actionTarget.dataset.mode === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
+        if (state.draft.scoreInputMode === SCORE_INPUT_MODES.cards) {
+          state.draft.cardPickerPlayerId = currentCardPickerPlayerId || activePlayers[0]?.id || null;
+        } else {
+          state.draft.cardPickerPlayerId = null;
+        }
+        if (state.data.currentGame) {
+          cacheRoundDraft(state.data.currentGame);
+        }
+        render();
+        if (state.draft.scoreInputMode === SCORE_INPUT_MODES.cards) {
+          focusCurrentScoreInput();
+        }
+      } else if (action === "toggle-card-picker" && actionTarget.dataset.playerId) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const nextPlayerId = actionTarget.dataset.playerId;
+        state.draft.cardPickerPlayerId = state.draft.cardPickerPlayerId === nextPlayerId ? null : nextPlayerId;
+        if (state.data.currentGame) {
+          cacheRoundDraft(state.data.currentGame);
+        }
+        render();
+      } else if (action === "toggle-card-selection" && actionTarget.dataset.playerId && actionTarget.dataset.cardToken) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const playerId = actionTarget.dataset.playerId;
+        const token = actionTarget.dataset.cardToken;
+        const nextStats = toggleRoundCardSelection(game, playerId, token);
+        state.draft.cardPickerPlayerId = playerId;
+        if (nextStats) {
+          syncCurrentGameCardPickerState(game, playerId);
+        }
+      } else if (action === "clear-card-selection" && actionTarget.dataset.playerId) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const playerId = actionTarget.dataset.playerId;
+        clearRoundCardSelection(game, playerId);
+        state.draft.cardPickerPlayerId = playerId;
+        syncCurrentGameCardPickerState(game, playerId);
       } else if (action === "resume-game" && gameId) {
         if (swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed")) {
           clearHomeSwipeState();
@@ -4442,6 +5235,7 @@ function initSettingsWatchers() {
   });
 }
 
+preloadFlip7CardArt();
 render();
 wireGlobalEvents();
 initSettingsWatchers();

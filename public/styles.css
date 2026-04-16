@@ -956,6 +956,12 @@ textarea {
   gap: 0.5rem;
 }
 
+.current-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
 .current-order-toggle .primary-action,
 .current-order-toggle .secondary-action {
   min-height: 42px;
@@ -975,11 +981,31 @@ textarea {
   border-color: color-mix(in srgb, var(--primary) 24%, var(--surface-border));
 }
 
+.current-mode-toggle .primary-action,
+.current-mode-toggle .secondary-action {
+  min-height: 42px;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.88rem;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.current-mode-toggle .secondary-action {
+  background: transparent;
+}
+
+.current-mode-toggle .primary-action {
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--surface-border));
+}
+
 .current-score-form .score-list {
   gap: 0.45rem;
 }
 
 .current-score-form .score-row {
+  position: relative;
   padding: 0.6rem 0;
   border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 75%, transparent);
 }
@@ -991,6 +1017,183 @@ textarea {
 
 .current-score-form .field {
   gap: 0.25rem;
+}
+
+.score-row.is-card-mode {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 180px);
+  align-items: start;
+}
+
+.score-card-toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.1rem;
+  min-height: 3.25rem;
+  width: 100%;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: var(--surface-strong);
+  color: var(--text);
+  text-align: right;
+}
+
+.score-card-toggle strong {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.score-card-toggle span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.score-card-toggle.is-open,
+.score-card-toggle:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--surface-border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.score-card-toggle.is-flip7 {
+  background: color-mix(in srgb, var(--success) 10%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--success) 28%, var(--surface-border));
+}
+
+.score-card-picker-shell {
+  grid-column: 1 / -1;
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.score-card-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface-strong) 84%, var(--surface));
+}
+
+.score-card-picker-head,
+.score-card-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.score-card-picker-grid {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.score-card-picker-grid-numbers {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.score-card-picker-grid-modifiers {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.score-card-picker-divider {
+  height: 1px;
+  margin: 0.35rem 0 0.45rem;
+  background: color-mix(in srgb, var(--surface-border) 72%, transparent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.score-card-button {
+  position: relative;
+  aspect-ratio: 0.84;
+  padding: 0;
+  border-radius: 18px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+  box-shadow: none;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.score-card-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  border-radius: inherit;
+}
+
+.score-card-button.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 68%, var(--surface-border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--primary) 38%, transparent),
+    0 10px 24px rgba(0, 0, 0, 0.22);
+  transform: translateY(-1px) scale(1.015);
+}
+
+.score-card-button.is-selected::after {
+  content: "✓";
+  position: absolute;
+  top: 0.24rem;
+  right: 0.24rem;
+  width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 88%, #000);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface-strong) 80%, transparent);
+}
+
+.score-card-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-card-hint {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.score-card-picker-summary {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.score-card-clear {
+  min-height: 2.7rem;
+  border-radius: 14px;
+  padding-inline: 0.85rem;
 }
 
 .current-score-form .round-note {
@@ -1046,6 +1249,18 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.settings-version {
+  margin: 1rem 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
+  text-align: center;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--muted-strong) 72%, var(--text));
+  opacity: 0.88;
 }
 
 .round-history-item {
@@ -1507,6 +1722,10 @@ textarea {
   .score-row {
     grid-template-columns: minmax(0, 1fr) 140px;
   }
+
+  .score-row.is-card-mode {
+    grid-template-columns: minmax(0, 1fr) 180px;
+  }
 }
 
 @media (max-width: 719px) {
@@ -1532,6 +1751,22 @@ textarea {
   .current-round-nav {
     gap: 0.45rem;
     padding: 0.55rem 0.65rem;
+  }
+
+  .score-row.is-card-mode {
+    grid-template-columns: minmax(0, 1fr) 108px;
+  }
+
+  .score-card-toggle {
+    padding-inline: 0.7rem;
+  }
+
+  .score-card-picker-grid-numbers {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .score-card-picker-grid-modifiers {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .current-game-header .screen-title {

@@ -1,5 +1,5 @@
 import { type Pool, type PoolClient } from "pg";
-import { Database, Game, GameMode, Player, Round } from "./types";
+import { Database, Game, GameMode, Player, Round, ScoreInputMode } from "./types";
 
 const defaultDatabase = (): Database => ({
   currentGame: null,
@@ -8,6 +8,7 @@ const defaultDatabase = (): Database => ({
 
 const defaultWinningScore = 200;
 const defaultGameMode: GameMode = "classic";
+const defaultScoreInputMode: ScoreInputMode = "manual";
 
 const normalizePlayer = (value: unknown, fallbackJoinedAt = ""): Player | null => {
   if (!value || typeof value !== "object") {
@@ -122,12 +123,16 @@ const normalizeGame = (value: unknown): Game | null => {
     typeof candidate.winningScore === "number" && Number.isFinite(candidate.winningScore)
       ? candidate.winningScore
       : defaultWinningScore;
+  const rawScoreInputMode = candidate.defaultScoreInputMode;
+  const defaultScoreInputModeValue: ScoreInputMode =
+    rawScoreInputMode === "cards" || rawScoreInputMode === "manual" ? rawScoreInputMode : defaultScoreInputMode;
 
   return {
     id: candidate.id,
     title: candidate.title,
     gameMode,
     winningScore,
+    defaultScoreInputMode: defaultScoreInputModeValue,
     createdAt: candidate.createdAt,
     updatedAt: candidate.updatedAt,
     completedAt: typeof candidate.completedAt === "string" ? candidate.completedAt : null,

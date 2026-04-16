@@ -7,6 +7,7 @@ export interface Player {
 }
 
 export type GameMode = "classic" | "vengeance" | "mixed";
+export type ScoreInputMode = "manual" | "cards";
 
 export interface RoundScore {
   playerId: string;
@@ -25,6 +26,7 @@ export interface Game {
   title: string;
   gameMode: GameMode;
   winningScore: number;
+  defaultScoreInputMode: ScoreInputMode;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;

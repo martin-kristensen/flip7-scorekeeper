@@ -9,7 +9,7 @@ import {
   isGameFinished,
   PostgresStore
 } from "./store";
-import { Game, GameMode, Player, Round, RoundScore } from "./types";
+import { Game, GameMode, Player, Round, RoundScore, ScoreInputMode } from "./types";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -103,6 +103,8 @@ const now = () => new Date().toISOString();
 const getSessionId = (request: express.Request) => (request as SessionRequest).sessionId;
 const isGameMode = (value: unknown): value is GameMode =>
   value === "classic" || value === "vengeance" || value === "mixed";
+const normalizeScoreInputMode = (value: unknown): ScoreInputMode =>
+  value === "cards" ? "cards" : "manual";
 const normalizeWinningScore = (value: unknown, fallback = 200) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -146,7 +148,7 @@ const updateDatabase = (
 const createGame = (
   title: string,
   playerNames: string[],
-  options?: { gameMode?: unknown; winningScore?: unknown }
+  options?: { gameMode?: unknown; winningScore?: unknown; defaultScoreInputMode?: unknown }
 ): Game => {
   const timestamp = now();
   const players: Player[] = Array.from(new Set(playerNames.map((name) => name.trim()).filter(Boolean))).map(
@@ -162,6 +164,10 @@ const createGame = (
     title: title.trim() || "Flip 7 Game",
     gameMode: isGameMode(options?.gameMode) ? options.gameMode : "classic",
     winningScore: normalizeWinningScore(options?.winningScore, 200),
+    defaultScoreInputMode:
+      isGameMode(options?.gameMode) && options?.gameMode === "classic"
+        ? normalizeScoreInputMode(options?.defaultScoreInputMode)
+        : "manual",
     createdAt: timestamp,
     updatedAt: timestamp,
     completedAt: null,
@@ -292,9 +298,10 @@ app.post("/api/game", async (request, response) => {
   const playerNames = Array.isArray(request.body?.players) ? request.body.players.map(String) : [];
   const gameMode = request.body?.gameMode;
   const winningScore = request.body?.winningScore;
+  const defaultScoreInputMode = request.body?.defaultScoreInputMode;
 
   try {
-    const game = createGame(title, playerNames, { gameMode, winningScore });
+    const game = createGame(title, playerNames, { gameMode, winningScore, defaultScoreInputMode });
     const database = await updateDatabase(request, (current) => ({
       currentGame: game,
       gameHistory: archiveCurrentGame(current.gameHistory, current.currentGame)
@@ -438,7 +445,8 @@ app.post("/api/game/restart", async (request, response) => {
       restartPlayers.map((player) => player.name),
       {
         gameMode: current.currentGame.gameMode,
-        winningScore: current.currentGame.winningScore
+        winningScore: current.currentGame.winningScore,
+        defaultScoreInputMode: current.currentGame.defaultScoreInputMode
       }
     );
 
@@ -489,6 +497,7 @@ app.post("/api/game/:id/resume", async (request, response) => {
 app.post("/api/rounds", async (request, response) => {
   const note = String(request.body?.note ?? "").trim();
   const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
+  const defaultScoreInputMode = request.body?.defaultScoreInputMode;
 
   const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
@@ -511,10 +520,15 @@ app.post("/api/rounds", async (request, response) => {
 
     const roundCreatedAt = round.createdAt;
     const eliminationTimestamp = new Date(Date.parse(roundCreatedAt) + 1).toISOString();
+    const nextDefaultScoreInputMode =
+      current.currentGame.gameMode === "classic"
+        ? normalizeScoreInputMode(defaultScoreInputMode ?? current.currentGame.defaultScoreInputMode)
+        : current.currentGame.defaultScoreInputMode;
     const updatedGame: Game = {
       ...current.currentGame,
       updatedAt: now(),
       completedAt: null,
+      defaultScoreInputMode: nextDefaultScoreInputMode,
       rounds: [...current.currentGame.rounds, round]
     };
 
