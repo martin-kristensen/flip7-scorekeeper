@@ -1,4 +1,5 @@
 import "dotenv/config";
+import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import express from "express";
@@ -15,6 +16,29 @@ const port = Number(process.env.PORT ?? 3000);
 const appRoot = path.resolve(__dirname, "..");
 const publicDirectory = path.join(appRoot, "public");
 const databaseUrl = process.env.DATABASE_URL;
+const parseEnvFlag = (value: string | undefined, fallback: boolean) => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return !["0", "false", "off", "no"].includes(value.trim().toLowerCase());
+};
+
+const clarityEnabled = parseEnvFlag(process.env.CLARITY_ENABLED, true);
+const clarityProjectId = process.env.CLARITY_PROJECT_ID === undefined ? "wci1yay9fr" : process.env.CLARITY_PROJECT_ID.trim();
+const claritySnippet = clarityEnabled && clarityProjectId
+  ? `<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "${clarityProjectId}");
+</script>`
+  : "";
+const indexTemplate = fs
+  .readFileSync(path.join(publicDirectory, "index.html"), "utf8")
+  .replace("<!-- CLARITY_SNIPPET -->", claritySnippet);
+const friendlyDatabaseError = "The scoreboard is temporarily offline. Please try again in a moment.";
 
 if (!databaseUrl) {
   throw new Error("Set DATABASE_URL to a Postgres connection string before starting the app.");
@@ -67,6 +91,11 @@ app.use((request, response, next) => {
   (request as SessionRequest).sessionId = sessionId;
   next();
 });
+
+app.get(["/", "/index.html"], (_request, response) => {
+  response.type("html").send(indexTemplate);
+});
+
 app.use(express.static(publicDirectory));
 
 const createId = () => crypto.randomUUID();
@@ -86,13 +115,9 @@ const createPlayerRecord = (name: string, timestamp = now()): Player => ({
   removedAt: null
 });
 const isPlayerActiveAt = (player: Player, timestamp: string) => {
-  if (!player.isActive) {
-    return false;
-  }
-
   const targetTime = Date.parse(timestamp);
   if (!Number.isFinite(targetTime)) {
-    return true;
+    return player.isActive;
   }
 
   const joinedAt = Date.parse(player.joinedAt);
@@ -694,7 +719,72 @@ app.delete("/api/history/:id", async (request, response) => {
 });
 
 app.get(/^(?!\/api).*/, (_request, response) => {
-  response.sendFile(path.join(publicDirectory, "index.html"));
+  response.type("html").send(indexTemplate);
+});
+
+app.use((error: Error, request: express.Request, response: express.Response, next: express.NextFunction) => {
+  if (response.headersSent) {
+    next(error);
+    return;
+  }
+
+  const errorMessage = error?.message || "";
+  const isDatabaseConnectionError =
+    /ECONNREFUSED|connection refused|could not connect|connect EHOSTUNREACH|connect ETIMEDOUT/i.test(errorMessage) ||
+    (error as NodeJS.ErrnoException | null)?.code === "ECONNREFUSED";
+  const message = isDatabaseConnectionError ? friendlyDatabaseError : "Something went wrong.";
+
+  if (request.originalUrl.startsWith("/api")) {
+    response.status(500).json({ error: message });
+    return;
+  }
+
+  response
+    .status(500)
+    .type("html")
+    .send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flip 7 Scorekeeper</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, sans-serif;
+        background: #14110e;
+        color: #f6efe7;
+        padding: 2rem;
+      }
+      .panel {
+        max-width: 34rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 24px;
+        padding: 1.25rem 1.35rem;
+        background: rgba(27, 23, 19, 0.92);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      }
+      p {
+        margin: 0.5rem 0 0;
+        line-height: 1.5;
+        color: #c8b8a7;
+      }
+      strong {
+        display: block;
+        font-size: 1.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <strong>${message}</strong>
+      <p>The app could not reach the database. Please reload in a moment.</p>
+    </div>
+  </body>
+</html>`);
 });
 
 app.listen(port, () => {

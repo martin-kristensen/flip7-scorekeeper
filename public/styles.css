@@ -188,6 +188,32 @@ textarea {
   padding: 1rem;
 }
 
+.system-banner {
+  width: min(calc(100% - 2rem), 960px);
+  margin: 0.9rem auto 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, var(--surface-border));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--danger-soft) 42%, var(--surface-strong));
+  color: var(--text);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.system-banner strong {
+  min-width: 0;
+}
+
+.system-banner .system-banner-retry {
+  flex: none;
+  min-height: 2.75rem;
+  white-space: nowrap;
+}
+
 .screen {
   display: flex;
   flex-direction: column;
