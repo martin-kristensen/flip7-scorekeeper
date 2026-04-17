@@ -25,7 +25,10 @@ const parseEnvFlag = (value: string | undefined, fallback: boolean) => {
 };
 
 const clarityEnabled = parseEnvFlag(process.env.CLARITY_ENABLED, true);
-const clarityProjectId = process.env.CLARITY_PROJECT_ID === undefined ? "wci1yay9fr" : process.env.CLARITY_PROJECT_ID.trim();
+const clarityProjectId = process.env.CLARITY_PROJECT_ID?.trim();
+if (clarityEnabled && !clarityProjectId) {
+  console.warn("CLARITY_ENABLED is true, but CLARITY_PROJECT_ID is missing. Clarity will not load.");
+}
 const claritySnippet = clarityEnabled && clarityProjectId
   ? `<script type="text/javascript">
     (function(c,l,a,r,i,t,y){

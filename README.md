@@ -10,7 +10,7 @@ Flip 7 Scorekeeper is a mobile-first scorekeeping app for Flip 7. It runs with a
 - Reorder the round view by entered order or leader first
 - Keep game history, archive games, and resume old tables
 - Show stats for the current or most recent game
-- Support English and Swedish
+- Support English, Swedish, and Danish
 - Support light, dark, and system theme modes
 
 ## Stack
@@ -71,6 +71,8 @@ The local database uses the connection string in `.env`. The default points at t
 ## Deployment
 
 The app is ready for Vercel or another Node host as long as `DATABASE_URL` points to a managed Postgres database. The cookie only stores the session identifier, so the same code can run locally and in production.
+
+If you want Microsoft Clarity on Vercel, add `CLARITY_PROJECT_ID` in the Vercel project settings. Keep `CLARITY_ENABLED=true` unless you want to disable the tag entirely.
 
 ## Notes
 
