@@ -72,11 +72,27 @@ const normalizeRound = (value: unknown): Round | null => {
       };
     })
     .filter((score): score is { playerId: string; points: number } => score !== null);
+  const cardSelections =
+    candidate.cardSelections && typeof candidate.cardSelections === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.cardSelections)
+            .filter(([playerId, selection]) => typeof playerId === "string" && playerId.length > 0 && Array.isArray(selection))
+            .map(([playerId, selection]) => [
+              playerId,
+              selection.filter((token): token is string => typeof token === "string" && token.length > 0)
+            ])
+        )
+      : undefined;
+  const rawScoreInputMode = candidate.scoreInputMode;
+  const scoreInputMode: ScoreInputMode | undefined =
+    rawScoreInputMode === "cards" || rawScoreInputMode === "manual" ? rawScoreInputMode : undefined;
 
   return {
     id: candidate.id,
     createdAt: candidate.createdAt,
     note: candidate.note,
+    scoreInputMode,
+    cardSelections,
     scores
   };
 };

@@ -108,6 +108,21 @@ const isGameMode = (value: unknown): value is GameMode =>
   value === "classic" || value === "vengeance" || value === "mixed";
 const normalizeScoreInputMode = (value: unknown): ScoreInputMode =>
   value === "cards" ? "cards" : "manual";
+const normalizeCardSelections = (value: unknown) => {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).flatMap(([playerId, selection]) => {
+      if (typeof playerId !== "string" || playerId.length === 0 || !Array.isArray(selection)) {
+        return [];
+      }
+
+      return [[playerId, selection.filter((token): token is string => typeof token === "string" && token.length > 0)]];
+    })
+  );
+};
 const normalizeWinningScore = (value: unknown, fallback = 200) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -381,6 +396,64 @@ app.post("/api/players", async (request, response) => {
   response.status(201).json({ game: toGameResponse(database.currentGame) });
 });
 
+app.patch("/api/players/:id", async (request, response) => {
+  const playerId = String(request.params.id ?? "");
+  const name = String(request.body?.name ?? "").trim();
+
+  if (!name) {
+    response.status(400).json({ error: "Player name is required." });
+    return;
+  }
+
+  const database = await updateDatabase(request, (current) => {
+    if (!current.currentGame) {
+      throw new Error("Start a game before editing players.");
+    }
+
+    if (isGameFinished(current.currentGame)) {
+      throw new Error("This game is finished. Start a new game to keep scoring.");
+    }
+
+    const player = current.currentGame.players.find((entry) => entry.id === playerId);
+    if (!player || !player.isActive) {
+      throw new Error("Player not found.");
+    }
+
+    const duplicate = current.currentGame.players.some(
+      (entry) => entry.id !== playerId && entry.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (duplicate) {
+      throw new Error("That player already exists.");
+    }
+
+    const timestamp = now();
+    const updatedGame: Game = {
+      ...current.currentGame,
+      updatedAt: timestamp,
+      players: current.currentGame.players.map((entry) =>
+        entry.id === playerId
+          ? {
+              ...entry,
+              name
+            }
+          : entry
+      )
+    };
+
+    return { ...current, currentGame: updatedGame };
+  }).catch((error: Error) => {
+    response.status(400).json({ error: error.message });
+    return null;
+  });
+
+  if (!database) {
+    return;
+  }
+
+  response.json({ game: toGameResponse(database.currentGame) });
+});
+
 app.delete("/api/players/:id", async (request, response) => {
   const playerId = String(request.params.id ?? "");
 
@@ -500,6 +573,8 @@ app.post("/api/game/:id/resume", async (request, response) => {
 app.post("/api/rounds", async (request, response) => {
   const note = String(request.body?.note ?? "").trim();
   const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
+  const scoreInputMode = normalizeScoreInputMode(request.body?.scoreInputMode);
+  const cardSelections = normalizeCardSelections(request.body?.cardSelections);
   const defaultScoreInputMode = request.body?.defaultScoreInputMode;
 
   const database = await updateDatabase(request, (current) => {
@@ -518,6 +593,8 @@ app.post("/api/rounds", async (request, response) => {
       id: createId(),
       createdAt: now(),
       note,
+      scoreInputMode,
+      cardSelections,
       scores
     };
 
@@ -640,6 +717,8 @@ app.patch("/api/rounds/:id", async (request, response) => {
   const roundId = String(request.params.id ?? "");
   const note = String(request.body?.note ?? "").trim();
   const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
+  const scoreInputMode = normalizeScoreInputMode(request.body?.scoreInputMode);
+  const cardSelections = normalizeCardSelections(request.body?.cardSelections);
 
   const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
@@ -676,7 +755,7 @@ app.patch("/api/rounds/:id", async (request, response) => {
     }
 
     const rounds = current.currentGame.rounds.map((round, index) =>
-      index === roundIndex ? { ...round, note, scores } : round
+      index === roundIndex ? { ...round, note, scoreInputMode, cardSelections, scores } : round
     );
 
     const updatedGame: Game = {

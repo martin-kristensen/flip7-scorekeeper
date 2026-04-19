@@ -892,6 +892,10 @@ textarea {
   background: transparent;
 }
 
+.current-player-nav {
+  grid-template-columns: 4.65rem minmax(0, 1fr) 4.65rem;
+}
+
 .current-round-nav-copy {
   display: flex;
   flex-direction: column;
@@ -922,6 +926,25 @@ textarea {
   font-size: 1.05rem;
   font-weight: 700;
   box-shadow: none;
+}
+
+.current-player-nav .round-nav-button {
+  width: 4.65rem;
+  height: 4.15rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 18px;
+}
+
+.round-nav-button-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.02rem;
+  line-height: 1;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .round-nav-button:disabled {
@@ -1071,6 +1094,28 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+}
+
+.score-card-picker-shell.is-manual-edit .score-card-picker-grid,
+.score-card-picker-shell.is-manual-edit .score-card-picker-divider,
+.score-card-picker-shell.is-manual-edit .current-card-hint {
+  opacity: 0.35;
+  filter: grayscale(1) saturate(0.2) brightness(0.82);
+}
+
+.score-card-picker-shell.is-manual-edit .current-round-nav {
+  opacity: 0.72;
+}
+
+.score-card-picker-shell.is-manual-edit .score-card-button {
+  opacity: 0.22;
+  box-shadow: none;
+  transform: none;
+  filter: grayscale(1) saturate(0.15) brightness(0.9);
+}
+
+.score-card-picker-shell.is-manual-edit .score-card-button.is-selected::after {
+  background: color-mix(in srgb, var(--muted) 70%, var(--surface-strong));
 }
 
 .score-card-picker {
@@ -1539,11 +1584,42 @@ textarea {
   gap: 0.2rem;
 }
 
+.current-roster-name-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .current-roster-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.current-roster-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.current-roster-edit {
+  flex: 0 0 auto;
+  width: 2.45rem;
+  height: 2.45rem;
+  padding: 0;
+}
+
+.current-roster-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.current-roster-rename-input {
+  width: 100%;
+  min-width: 0;
 }
 
 .current-roster-remove {

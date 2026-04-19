@@ -18,6 +18,8 @@ export interface Round {
   id: string;
   createdAt: string;
   note: string;
+  scoreInputMode?: ScoreInputMode;
+  cardSelections?: Record<string, string[]>;
   scores: RoundScore[];
 }
 
