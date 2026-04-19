@@ -1,5 +1,5 @@
 const STORAGE_KEY = "flip7-preferences";
-const APP_VERSION = "2026.16.01";
+const APP_VERSION = "2026.16.02";
 const DEFAULT_SETTINGS = {
   theme: "system",
   language: "en",
