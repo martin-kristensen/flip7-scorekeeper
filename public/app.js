@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   defaultScoreInputMode: "manual",
   hiddenRecentGameIds: []
 };
+const SUPPORTED_LANGUAGES = ["en", "sv", "da"];
 
 const FLIP7_BONUS_POINTS = 15;
 const SCORE_INPUT_MODES = {
@@ -144,763 +145,6 @@ function preloadFlip7CardArt() {
   });
 }
 
-const TRANSLATIONS = {
-  en: {
-    app: {
-      title: "Flip 7 Scorekeeper",
-      brandPrimary: "Flip 7",
-      brandSecondary: "Scorekeeper"
-    },
-    nav: {
-      playNewGame: "Play new game",
-      browseGames: "Browse games",
-      currentGame: "Current Game",
-      stats: "Stats",
-      settings: "Settings",
-      openMenu: "Open menu"
-    },
-    common: {
-      players: "players",
-      player: "player",
-      cards: "cards",
-      rounds: "rounds",
-      round: "round",
-      points: "points",
-      add: "Add",
-      continue: "Continue",
-      cancel: "Cancel",
-      save: "Save",
-      delete: "Delete",
-      archive: "Archive",
-      resume: "Continue",
-      current: "Current",
-      finished: "Finished",
-      archived: "Archived",
-      close: "Close",
-      currentGame: "Current game",
-      noGame: "No game on the table yet.",
-      open: "Open",
-      reset: "Reset",
-      loading: "Loading...",
-      dbUnavailable: "The scoreboard is temporarily offline.",
-      retry: "Try again"
-    },
-    modes: {
-      classic: "Flip 7 Classic",
-      vengeance: "Flip 7: With a Vengeance",
-      mixed: "Mixed / Custom"
-    },
-    statuses: {
-      inProgress: "In progress",
-      finished: "Finished",
-      archived: "Archived"
-    },
-    home: {
-      eyebrow: "Flip 7",
-      title: "A score table with a bit more spark.",
-      lead: "Start a fresh game or jump back into a recent one.",
-      startFresh: "Start a game",
-      continueCurrent: "Jump back in",
-      activeGameLabel: "Live table",
-      noActiveGame: "No live table right now.",
-      recentGames: "Recent games",
-      removeRecent: "Remove",
-      credits: "Built in Sibbarp by Martin Kristensen, Codex, and Klangen82."
-    },
-    newGame: {
-      eyebrow: "Set the table",
-      title: "Deal a new game",
-      lead: "Pick a mode, add players, and get rolling fast.",
-      titleLabel: "Table name (optional)",
-      titlePlaceholder: "Friday showdown",
-      modeLabel: "Deck / mode",
-      inputModeHelp: "Flip 7 Classic can use cards. Other modes use manual entry.",
-      winningScoreLabel: "Target score for this game",
-      playersLabel: "Players at the table",
-      playerPlaceholder: "Type a player name",
-      playerHelp: "Press Enter or Next to add each player quickly.",
-      addedPlayers: "Players on deck",
-      startGame: "Deal the game",
-      defaultWinningScore: "Default target: win on 200.",
-      noPlayersYet: "No players yet.",
-      duplicatePlayer: "That player is already in."
-    },
-    existing: {
-      eyebrow: "Game stash",
-      title: "Jump back in",
-      lead: "Tap a game to open it again. Swipe or use the menu to clear one out.",
-      currentSection: "Live game",
-      savedSection: "Game stash",
-      continueCard: "Jump back in",
-      resumeCard: "Jump back in",
-      archiveCard: "Tuck away",
-      deleteCard: "Remove",
-      lastPlayed: "Last played",
-      playersLabel: ({ count }) => `${count} ${count === 1 ? "player" : "players"}`,
-      roundsLabel: ({ count }) => `${count} ${count === 1 ? "round" : "rounds"}`,
-      noGames: "No saved games yet. Start one first."
-    },
-    current: {
-      eyebrow: "Live table",
-      title: "Play the round",
-      lead: "Enter scores, hit next round, and keep the table moving.",
-      noGame: "No live table yet.",
-      winningScore: "Target",
-      roundScores: "Round scores",
-      scoreInputMode: "Input mode",
-      manualMode: "Manual",
-      cardMode: "Cards",
-      cardModeHint: "Tap the cards the player has in front of them.",
-      scanRound: {
-        action: "Score with AI",
-        eyebrow: "AI scan",
-        title: "Scan the table",
-        captureTitle: "Capture cards",
-        summaryTitle: "Review scan",
-        capture: "Capture",
-        skip: "Skip player",
-        manual: "Enter manually",
-        cancel: "Cancel scan",
-        backToScan: "Back to scan",
-        confirm: "Confirm round",
-        rescan: "Rescan",
-        retakePhoto: "Retake photo",
-        manualAddCards: "Manually add cards",
-        rowActions: "Row actions",
-        useManual: "Use manual",
-        markSkipped: "Skip",
-        playerCount: "{{current}} of {{total}}",
-        cameraReady: "Camera ready",
-        cameraStarting: "Starting camera",
-        cameraUnavailable: "Camera preview unavailable",
-        fakeOnly: "Prototype mode",
-        fakeOnlyHint: "Images are not sent anywhere yet. Fake analysis runs in the browser.",
-        processing: "Processing",
-        uploading: "Uploading",
-        ready: "Ready",
-        failed: "Needs review",
-        skipped: "Skipped",
-        manualStatus: "Manual",
-        idle: "Waiting",
-        confidence: "{{count}}% confidence",
-        noCards: "No cards yet",
-        summaryLead: "Check every row before saving the round.",
-        pendingSummary: "{{count}} scans still processing",
-        confirmBlocked: "Finish processing or edit the rows that need review.",
-        capturedPreview: "Photo captured",
-        manualPrompt: "Score for {{name}}",
-        manualInvalid: "Enter a valid score.",
-        summaryEmpty: "No scan results yet.",
-        scoreLabel: "Score",
-        detectedCards: "Detected cards"
-      },
-      cardsSelected: "{{count}} cards selected",
-      manualEditActive: "Manual edit active",
-      flip7Bonus: "Flip 7 bonus",
-      flip7Achieved: "Flip 7 achieved",
-      clearCards: "Clear hand",
-      previousPlayer: "Previous player",
-      nextPlayer: "Next player",
-      previousWord: "Previous",
-      nextWord: "Next",
-      playerWord: "player",
-      gameDetails: "Game details, note & players",
-      managePlayers: "Manage players",
-      addPlayer: "Add player",
-      editPlayer: "Edit",
-      activatePlayer: "Activate",
-      playerPlaceholder: "Type a player name",
-      activePlayers: "Active players",
-      inactivePlayers: "Inactive players",
-      appliesFutureRounds: "Applies to future rounds only.",
-      noActivePlayers: "No active players.",
-      noInactivePlayers: "No inactive players.",
-      inactive: "Inactive",
-      removePlayer: "Remove",
-      minimumPlayers: "Need at least two active players.",
-      orderBy: "Order",
-      enteredOrder: "Entered",
-      leaderFirst: "Leader first",
-      roundNavigation: "Round navigation",
-      previousRound: "Previous round",
-      nextRound: "Next round",
-      liveRound: "Live round",
-      liveRoundStatus: "Ready to score",
-      readOnlyRound: "Read only",
-      editingRound: "Editing round",
-      roundCounter: "Round {{current}} / {{total}}",
-      roundNumber: "Round {{count}}",
-      roundNote: "Round note (optional)",
-      finalNote: "Final note (optional)",
-      noNote: "No note",
-      roundHistory: "Round history",
-      winningRound: "Winning round",
-      invalidRound: "Invalid",
-      shouldHaveEndedAtRound: "Game should have ended at Round {{count}}.",
-      invalidRoundsNote: "Later rounds stay visible for review, but they do not count in totals.",
-      backToLive: "Back to live",
-      saveRound: "Next round",
-      archiveGame: "Tuck away game",
-      newGame: "Start a game",
-      playAgain: "Play again",
-      leftToWin: ({ count }) => `${formatNumber(count)} left`,
-      leaderLabel: "Leader",
-      tiedLeaderLabel: "Tied leader",
-      behindLeader: ({ count }) => `${formatNumber(count)} ${count === 1 ? "point" : "points"} behind`,
-      suddenDeath: "Sudden death",
-      keepTiedResult: "Keep tied result",
-      suddenDeathInProgress: "Sudden death in progress",
-      liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
-      confirmTitle: "Continue to the next round?",
-      finishedTitle: "Game over",
-      finishedLead: "Someone hit the target.",
-      winnerLabel: "Winner",
-      tiedWinnerLabel: "Tied winners",
-      askContinue: "Nobody has hit the target yet. Start another round anyway?",
-      continueNextRound: "Continue to next round",
-      currentTotals: "Current totals",
-      leaderboardLabel: "Table"
-    },
-    stats: {
-      eyebrow: "Stats",
-      title: "Score story",
-      lead: "A quick look at the live game or the latest finished one.",
-      noStats: "Start or resume a game to see the numbers.",
-      scopeLabel: "View",
-      pickLabel: "Pick a game",
-      allGames: "All games",
-      pickGame: "Pick a game",
-      leader: "Front runner",
-      highestSingleScore: "Highest single score",
-      lowestSingleScore: "Lowest single score",
-      totalRounds: "Total rounds",
-      averageRound: "Average round",
-      highestRoundTotal: "Highest round total",
-      lowestRoundTotal: "Lowest round total",
-      totalGames: "Games played",
-      averageRoundsPerGame: "Avg. rounds per game",
-      perPlayerTotals: "Per-player totals",
-      roundHistory: "Round history",
-      winner: "Winner",
-      roundTotal: "Round total"
-    },
-    settings: {
-      eyebrow: "Settings",
-      title: "Table settings",
-      lead: "Set your defaults and keep the game moving.",
-      defaultWinningScore: "Default target score",
-      defaultInputMode: "Default input mode",
-      inputModeHelp: "Flip 7 Classic uses this mode when a new game starts.",
-      theme: "Theme",
-      language: "Language",
-      light: "Light",
-      dark: "Dark",
-      system: "System",
-      english: "English",
-      swedish: "Svenska",
-      danish: "Dansk",
-      resetPrefs: "Reset table settings",
-      keepNote: "New games keep their own target score."
-    },
-    archiveConfirm: {
-      title: "Tuck away this game?",
-      message: "This game is still live. Tucking it away now will move it out of the table view.",
-      confirm: "Tuck away"
-    },
-    celebration: {
-      title: "Winner!",
-      tiedTitle: "Tied winners!"
-    },
-    toast: {
-      gameStarted: "Game on.",
-      playerAdded: "Player added.",
-      playerRestored: "Player restored.",
-      playerRemoved: "Player removed.",
-      roundSaved: "Round locked in.",
-      gameFinished: "Game over.",
-      gameArchived: "Game tucked away.",
-      gameResumed: "Game reopened.",
-      gameDeleted: "Saved game removed.",
-      recentRemoved: "Removed from recent games.",
-      playerRenamed: "Player renamed.",
-      preferencesReset: "Table settings reset."
-    }
-  },
-  sv: {
-    app: {
-      title: "Flip 7 Poängräknare",
-      brandPrimary: "Flip 7",
-      brandSecondary: "Poängräknare"
-    },
-    nav: {
-      playNewGame: "Spela nytt spel",
-      browseGames: "Bläddra spel",
-      currentGame: "Pågående spel",
-      stats: "Statistik",
-      settings: "Inställningar",
-      openMenu: "Öppna meny"
-    },
-    common: {
-      players: "spelare",
-      player: "spelare",
-      cards: "kort",
-      rounds: "omgångar",
-      round: "omgång",
-      points: "poäng",
-      add: "Lägg till",
-      continue: "Fortsätt",
-      cancel: "Avbryt",
-      save: "Spara",
-      delete: "Ta bort",
-      archive: "Arkivera",
-      resume: "Fortsätt",
-      current: "Pågående",
-      finished: "Avslutat",
-      archived: "Arkiverat",
-      currentGame: "Pågående spel",
-      noGame: "Inget spel vid bordet ännu.",
-      open: "Öppna",
-      reset: "Återställ",
-      loading: "Laddar...",
-      dbUnavailable: "Poängtablån är tillfälligt offline.",
-      retry: "Försök igen"
-    },
-    modes: {
-      classic: "Flip 7 Classic",
-      vengeance: "Flip 7: With a Vengeance",
-      mixed: "Blandat / Eget"
-    },
-    statuses: {
-      inProgress: "Pågående",
-      finished: "Avslutat",
-      archived: "Arkiverat"
-    },
-    home: {
-      eyebrow: "Flip 7",
-      title: "Ett poängbord med lite mer spelglädje.",
-      lead: "Starta ett nytt spel eller hoppa tillbaka till ett nyligt.",
-      startFresh: "Starta ett spel",
-      continueCurrent: "Hoppa in igen",
-      activeGameLabel: "Livebord",
-      noActiveGame: "Inget livebord just nu.",
-      recentGames: "Nyliga spel",
-      removeRecent: "Ta bort",
-      credits: "Byggt i Sibbarp av Martin Kristensen, Codex och Klangen82."
-    },
-    newGame: {
-      eyebrow: "Ställ bordet",
-      title: "Dela ut ett nytt spel",
-      lead: "Välj läge, lägg till spelare och sätt igång snabbt.",
-      titleLabel: "Bordets namn (valfritt)",
-      titlePlaceholder: "Fredagsduellen",
-      modeLabel: "Läge / kortlek",
-      inputModeHelp: "Flip 7 Classic kan använda kort. Andra lägen använder manuell inmatning.",
-      winningScoreLabel: "Målpoäng för detta spel",
-      playersLabel: "Spelare vid bordet",
-      playerPlaceholder: "Skriv en spelare",
-      playerHelp: "Tryck Enter eller Nästa för att lägga till varje spelare snabbt.",
-      addedPlayers: "Tillagda spelare",
-      startGame: "Dela ut korten",
-      defaultWinningScore: "Standardmål: 200 poäng.",
-      noPlayersYet: "Inga spelare ännu.",
-      duplicatePlayer: "Den spelaren finns redan."
-    },
-    existing: {
-      eyebrow: "Spelarkiv",
-      title: "Hoppa in igen",
-      lead: "Tryck på ett spel för att öppna det igen. Svep eller använd menyn för att rensa bort ett.",
-      currentSection: "Live spel",
-      savedSection: "Spelarkiv",
-      continueCard: "Hoppa in igen",
-      resumeCard: "Hoppa in igen",
-      archiveCard: "Flytta till arkiv",
-      deleteCard: "Ta bort",
-      lastPlayed: "Senast spelat",
-      playersLabel: ({ count }) => `${count} spelare`,
-      roundsLabel: ({ count }) => `${count} ${count === 1 ? "omgång" : "omgångar"}`,
-      noGames: "Inga sparade spel ännu. Starta ett först."
-    },
-    current: {
-      eyebrow: "Livebord",
-      title: "Spela rundan",
-      lead: "Skriv in poäng, gå vidare till nästa runda och håll spelet i gång.",
-      noGame: "Inget livebord ännu.",
-      winningScore: "Mål",
-      roundScores: "Omgångspoäng",
-      scoreInputMode: "Inmatningssätt",
-      manualMode: "Manuellt",
-      cardMode: "Kort",
-      cardModeHint: "Tryck på korten spelaren har framför sig.",
-      cardsSelected: "{{count}} kort valda",
-      manualEditActive: "Manuell redigering aktiv",
-      flip7Bonus: "Flip 7-bonus",
-      flip7Achieved: "Flip 7 uppnått",
-      clearCards: "Rensa hand",
-      previousPlayer: "Föregående spelare",
-      nextPlayer: "Nästa spelare",
-      previousWord: "Föregående",
-      nextWord: "Nästa",
-      playerWord: "spelare",
-      gameDetails: "Speldetaljer, anteckning och spelare",
-      managePlayers: "Hantera spelare",
-      addPlayer: "Lägg till spelare",
-      editPlayer: "Redigera",
-      activatePlayer: "Aktivera",
-      playerPlaceholder: "Skriv ett spelarnamn",
-      activePlayers: "Aktiva spelare",
-      inactivePlayers: "Inaktiva spelare",
-      appliesFutureRounds: "Gäller bara kommande omgångar.",
-      noActivePlayers: "Inga aktiva spelare.",
-      noInactivePlayers: "Inga inaktiva spelare.",
-      inactive: "Inaktiv",
-      removePlayer: "Ta bort",
-      minimumPlayers: "Minst två aktiva spelare krävs.",
-      orderBy: "Ordning",
-      enteredOrder: "Som inmatat",
-      leaderFirst: "Ledaren först",
-      roundNavigation: "Omgångsnavigering",
-      previousRound: "Föregående omgång",
-      nextRound: "Nästa omgång",
-      liveRound: "Liveomgång",
-      liveRoundStatus: "Redo att fylla i poäng",
-      readOnlyRound: "Läsläge",
-      editingRound: "Redigerar omgång",
-      roundCounter: "Omgång {{current}} / {{total}}",
-      roundNumber: "Omgång {{count}}",
-      roundNote: "Anteckning för rundan (valfri)",
-      finalNote: "Slutnotering (valfri)",
-      noNote: "Ingen anteckning",
-      roundHistory: "Omgångshistorik",
-      winningRound: "Avgörande omgång",
-      invalidRound: "Ogiltig",
-      shouldHaveEndedAtRound: "Spelet borde ha slutat vid omgång {{count}}.",
-      invalidRoundsNote: "Senare omgångar sparas för granskning, men räknas inte i totalsumman.",
-      backToLive: "Till livebordet",
-      saveRound: "Nästa omgång",
-      archiveGame: "Flytta till arkiv",
-      newGame: "Starta ett spel",
-      playAgain: "Spela igen",
-      leftToWin: ({ count }) => `${formatNumber(count)} kvar`,
-      leaderLabel: "Ledare",
-      tiedLeaderLabel: "Delad ledare",
-      behindLeader: ({ count }) => `${formatNumber(count)} poäng efter`,
-      suddenDeath: "Sudden death",
-      keepTiedResult: "Behåll oavgjort",
-      suddenDeathInProgress: "Sudden death in progress",
-      liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
-      confirmTitle: "Fortsätt till nästa omgång?",
-      finishedTitle: "Spelet är slut",
-      finishedLead: "Någon har nått målet.",
-      winnerLabel: "Vinnare",
-      tiedWinnerLabel: "Delade vinnare",
-      askContinue: "Ingen har nått målet ännu. Vill du köra en omgång till ändå?",
-      continueNextRound: "Fortsätt till nästa omgång",
-      currentTotals: "Nuvarande totalsummor",
-      leaderboardLabel: "Tabell"
-    },
-    stats: {
-      eyebrow: "Statistik",
-      title: "Poängstatistik",
-      lead: "En snabb blick på det aktiva spelet eller det senaste avslutade.",
-      noStats: "Starta eller fortsätt ett spel för att se siffrorna.",
-      scopeLabel: "Visa",
-      pickLabel: "Välj ett spel",
-      allGames: "Alla spel",
-      pickGame: "Välj ett spel",
-      leader: "Ledare",
-      highestSingleScore: "Högsta enskilda poäng",
-      lowestSingleScore: "Lägsta enskilda poäng",
-      totalRounds: "Totalt antal omgångar",
-      averageRound: "Genomsnitt per omgång",
-      highestRoundTotal: "Högsta omgångssumma",
-      lowestRoundTotal: "Lägsta omgångssumma",
-      totalGames: "Spelade spel",
-      averageRoundsPerGame: "Snitt omgångar per spel",
-      perPlayerTotals: "Totalsumma per spelare",
-      roundHistory: "Omgångshistorik",
-      winner: "Vinnare",
-      roundTotal: "Omgångssumma"
-    },
-    settings: {
-      eyebrow: "Inställningar",
-      title: "Bordets inställningar",
-      lead: "Ställ in dina val och håll spelet i gång.",
-      defaultWinningScore: "Standardmål",
-      defaultInputMode: "Standard inmatningssätt",
-      inputModeHelp: "Flip 7 Classic använder detta läge när ett nytt spel startas.",
-      theme: "Tema",
-      language: "Språk",
-      light: "Ljus",
-      dark: "Mörk",
-      system: "System",
-      english: "Engelska",
-      swedish: "Svenska",
-      danish: "Danska",
-      resetPrefs: "Återställ bordets inställningar",
-      keepNote: "Nya spel behåller sitt eget mål."
-    },
-    archiveConfirm: {
-      title: "Lägg undan det här spelet?",
-      message: "Det här spelet är fortfarande igång. Om du lägger undan det nu försvinner det från bordsvyn.",
-      confirm: "Lägg undan"
-    },
-    celebration: {
-      title: "Vinnare!",
-      tiedTitle: "Delade vinnare!"
-    },
-    toast: {
-      gameStarted: "Spelet är igång.",
-      playerAdded: "Spelare tillagd.",
-      playerRestored: "Spelare aktiverad.",
-      playerRemoved: "Spelare borttagen.",
-      roundSaved: "Rundan är låst.",
-      gameFinished: "Spelet är slut.",
-      gameArchived: "Spelet är arkiverat.",
-      gameResumed: "Spelet är öppnat igen.",
-      gameDeleted: "Sparat spel borttaget.",
-      recentRemoved: "Borttagen från nyliga spel.",
-      playerRenamed: "Spelarnamn uppdaterat.",
-      preferencesReset: "Bordets inställningar återställda."
-    }
-  },
-  da: {
-    app: {
-      title: "Flip 7 Scorekeeper",
-      brandPrimary: "Flip 7",
-      brandSecondary: "Scorekeeper"
-    },
-    nav: {
-      playNewGame: "Spil nyt spil",
-      browseGames: "Gennemse spil",
-      currentGame: "Aktuelt spil",
-      stats: "Statistik",
-      settings: "Indstillinger",
-      openMenu: "Åbn menu"
-    },
-    common: {
-      players: "spillere",
-      player: "spiller",
-      cards: "kort",
-      rounds: "runder",
-      round: "runde",
-      points: "point",
-      add: "Tilføj",
-      continue: "Fortsæt",
-      cancel: "Annuller",
-      save: "Gem",
-      delete: "Slet",
-      archive: "Arkivér",
-      resume: "Fortsæt",
-      current: "Aktuel",
-      finished: "Færdig",
-      archived: "Arkiveret",
-      currentGame: "Aktuelt spil",
-      noGame: "Der er ikke noget spil på bordet endnu.",
-      open: "Åbn",
-      reset: "Nulstil",
-      loading: "Indlæser...",
-      dbUnavailable: "Pointtavlen er midlertidigt offline.",
-      retry: "Prøv igen"
-    },
-    modes: {
-      classic: "Flip 7 Classic",
-      vengeance: "Flip 7: With a Vengeance",
-      mixed: "Blandet / Egen"
-    },
-    statuses: {
-      inProgress: "I gang",
-      finished: "Færdig",
-      archived: "Arkiveret"
-    },
-    home: {
-      eyebrow: "Flip 7",
-      title: "Et scorebord med lidt mere gnist.",
-      lead: "Start et nyt spil eller hop tilbage til et nyligt.",
-      startFresh: "Start et spil",
-      continueCurrent: "Hop ind igen",
-      activeGameLabel: "Livebord",
-      noActiveGame: "Intet livebord lige nu.",
-      recentGames: "Nylige spil",
-      removeRecent: "Fjern",
-      credits: "Bygget i Sibbarp af Martin Kristensen, Codex og Klangen82."
-    },
-    newGame: {
-      eyebrow: "Dæk bordet",
-      title: "Del et nyt spil ud",
-      lead: "Vælg en tilstand, tilføj spillere, og kom hurtigt i gang.",
-      titleLabel: "Bordnavn (valgfrit)",
-      titlePlaceholder: "Fredagsduel",
-      modeLabel: "Dæk / tilstand",
-      inputModeHelp: "Flip 7 Classic kan bruge kort. Andre tilstande bruger manuel indtastning.",
-      winningScoreLabel: "Målscore for dette spil",
-      playersLabel: "Spillere ved bordet",
-      playerPlaceholder: "Skriv et spillernavn",
-      playerHelp: "Tryk Enter eller Næste for hurtigt at tilføje hver spiller.",
-      addedPlayers: "Spillere på dækket",
-      startGame: "Del spillet ud",
-      defaultWinningScore: "Standardmål: vind på 200.",
-      noPlayersYet: "Ingen spillere endnu.",
-      duplicatePlayer: "Den spiller er allerede tilføjet."
-    },
-    existing: {
-      eyebrow: "Spilarkiv",
-      title: "Hop ind igen",
-      lead: "Tryk på et spil for at åbne det igen. Stryg eller brug menuen for at rydde et væk.",
-      currentSection: "Aktuelt spil",
-      savedSection: "Spilarkiv",
-      continueCard: "Hop ind igen",
-      resumeCard: "Hop ind igen",
-      archiveCard: "Læg væk",
-      deleteCard: "Slet",
-      lastPlayed: "Sidst spillet",
-      playersLabel: ({ count }) => `${count} ${count === 1 ? "spiller" : "spillere"}`,
-      roundsLabel: ({ count }) => `${count} ${count === 1 ? "runde" : "runder"}`,
-      noGames: "Ingen gemte spil endnu. Start et først."
-    },
-    current: {
-      eyebrow: "Livebord",
-      title: "Spil runden",
-      lead: "Indtast point, gå til næste runde, og hold spillet i gang.",
-      noGame: "Intet livebord endnu.",
-      winningScore: "Mål",
-      roundScores: "Rundepoint",
-      scoreInputMode: "Indtastning",
-      manualMode: "Manuelt",
-      cardMode: "Kort",
-      cardModeHint: "Tryk på de kort, spilleren har foran sig.",
-      cardsSelected: "{{count}} kort valgt",
-      manualEditActive: "Manuel redigering aktiv",
-      flip7Bonus: "Flip 7-bonus",
-      flip7Achieved: "Flip 7 opnået",
-      clearCards: "Ryd hånd",
-      previousPlayer: "Forrige spiller",
-      nextPlayer: "Næste spiller",
-      previousWord: "Forrige",
-      nextWord: "Næste",
-      playerWord: "spiller",
-      gameDetails: "Spildetaljer, note og spillere",
-      managePlayers: "Administrer spillere",
-      addPlayer: "Tilføj spiller",
-      editPlayer: "Redigér",
-      activatePlayer: "Aktivér",
-      playerPlaceholder: "Skriv et spillernavn",
-      activePlayers: "Aktive spillere",
-      inactivePlayers: "Inaktive spillere",
-      appliesFutureRounds: "Gælder kun for kommende runder.",
-      noActivePlayers: "Ingen aktive spillere.",
-      noInactivePlayers: "Ingen inaktive spillere.",
-      inactive: "Inaktiv",
-      removePlayer: "Fjern",
-      minimumPlayers: "Der kræves mindst to aktive spillere.",
-      orderBy: "Rækkefølge",
-      enteredOrder: "Indtastet",
-      leaderFirst: "Førsteplads først",
-      roundNavigation: "Rundenavigation",
-      previousRound: "Forrige runde",
-      nextRound: "Næste runde",
-      liveRound: "Live-runde",
-      liveRoundStatus: "Klar til point",
-      readOnlyRound: "Kun læsning",
-      editingRound: "Redigerer runde",
-      roundCounter: "Runde {{current}} / {{total}}",
-      roundNumber: "Runde {{count}}",
-      roundNote: "Notat til runden (valgfrit)",
-      finalNote: "Slutnotat (valgfrit)",
-      noNote: "Intet notat",
-      roundHistory: "Rundehistorik",
-      winningRound: "Vinderrunde",
-      invalidRound: "Ugyldig",
-      shouldHaveEndedAtRound: "Spillet burde være sluttet ved runde {{count}}.",
-      invalidRoundsNote: "Senere runder vises stadig til gennemgang, men de tæller ikke med i totalen.",
-      backToLive: "Tilbage til live",
-      saveRound: "Næste runde",
-      archiveGame: "Læg spil væk",
-      newGame: "Start et spil",
-      playAgain: "Spil igen",
-      leftToWin: ({ count }) => `${formatNumber(count)} tilbage`,
-      leaderLabel: "Fører",
-      tiedLeaderLabel: "Delt føring",
-      behindLeader: ({ count }) => `${formatNumber(count)} point bagud`,
-      suddenDeath: "Sudden death",
-      keepTiedResult: "Behold uafgjort resultat",
-      suddenDeathInProgress: "Sudden death in progress",
-      liveScorePreview: "{{committed}} + {{entered}} → {{projected}}",
-      confirmTitle: "Fortsæt til næste runde?",
-      finishedTitle: "Spillet er slut",
-      finishedLead: "Nogen ramte målet.",
-      winnerLabel: "Vinder",
-      tiedWinnerLabel: "Delte vindere",
-      askContinue: "Ingen har nået målet endnu. Vil du tage en runde mere alligevel?",
-      continueNextRound: "Fortsæt til næste runde",
-      currentTotals: "Aktuelle totaler",
-      leaderboardLabel: "Tavle"
-    },
-    stats: {
-      eyebrow: "Statistik",
-      title: "Pointhistorik",
-      lead: "Et hurtigt kig på det aktive spil eller det senest afsluttede.",
-      noStats: "Start eller genoptag et spil for at se tallene.",
-      scopeLabel: "Vis",
-      pickLabel: "Vælg et spil",
-      allGames: "Alle spil",
-      pickGame: "Vælg et spil",
-      leader: "Frontløber",
-      highestSingleScore: "Højeste enkeltresultat",
-      lowestSingleScore: "Laveste enkeltresultat",
-      totalRounds: "Samlet antal runder",
-      averageRound: "Gennemsnit pr. runde",
-      highestRoundTotal: "Højeste rundesum",
-      lowestRoundTotal: "Laveste rundesum",
-      totalGames: "Spil spillet",
-      averageRoundsPerGame: "Gns. runder pr. spil",
-      perPlayerTotals: "Totaler pr. spiller",
-      roundHistory: "Rundehistorik",
-      winner: "Vinder",
-      roundTotal: "Rundesum"
-    },
-    settings: {
-      eyebrow: "Indstillinger",
-      title: "Bordindstillinger",
-      lead: "Sæt dine standarder og hold spillet i gang.",
-      defaultWinningScore: "Standardmålscore",
-      defaultInputMode: "Standard indtastning",
-      inputModeHelp: "Flip 7 Classic bruger denne tilstand, når et nyt spil starter.",
-      theme: "Tema",
-      language: "Sprog",
-      light: "Lys",
-      dark: "Mørk",
-      system: "System",
-      english: "Engelsk",
-      swedish: "Svensk",
-      danish: "Dansk",
-      resetPrefs: "Nulstil bordindstillinger",
-      keepNote: "Nye spil beholder deres egen målscore."
-    },
-    archiveConfirm: {
-      title: "Læg dette spil væk?",
-      message: "Dette spil er stadig aktivt. Hvis du lægger det væk nu, ryger det ud af bordvisningen.",
-      confirm: "Læg væk"
-    },
-    celebration: {
-      title: "Vinder!",
-      tiedTitle: "Delte vindere!"
-    },
-    toast: {
-      gameStarted: "Spillet er i gang.",
-      playerAdded: "Spiller tilføjet.",
-      playerRestored: "Spiller aktiveret.",
-      playerRemoved: "Spiller fjernet.",
-      roundSaved: "Runden er låst.",
-      gameFinished: "Spillet er slut.",
-      gameArchived: "Spillet er arkiveret.",
-      gameResumed: "Spillet er åbnet igen.",
-      gameDeleted: "Gemte spil fjernet.",
-      recentRemoved: "Fjernet fra nylige spil.",
-      playerRenamed: "Spillernavn opdateret.",
-      preferencesReset: "Bordindstillinger nulstillet."
-    }
-  }
-};
 
 const initialSettings = loadSettings();
 
@@ -1007,6 +251,10 @@ function saveSettings() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.settings));
 }
 
+function normalizeLanguage(value) {
+  return SUPPORTED_LANGUAGES.includes(value) ? value : "en";
+}
+
 function loadSettings() {
   const preferredLanguage = getPreferredLanguage();
   try {
@@ -1015,8 +263,7 @@ function loadSettings() {
       return getDefaultSettings(preferredLanguage);
     }
 
-    const storedLanguage =
-      parsed.language === "sv" || parsed.language === "da" || parsed.language === "en" ? parsed.language : null;
+    const storedLanguage = SUPPORTED_LANGUAGES.includes(parsed.language) ? parsed.language : null;
 
     return {
       theme: parsed.theme === "light" || parsed.theme === "dark" || parsed.theme === "system"
@@ -1061,8 +308,43 @@ function getDefaultSettings(language = getPreferredLanguage()) {
   return {
     ...DEFAULT_SETTINGS,
     hiddenRecentGameIds: [],
-    language
+    language: normalizeLanguage(language)
   };
+}
+
+async function loadTranslationResource(language) {
+  const response = await fetch(`/locales/${encodeURIComponent(language)}/translation.json`);
+  if (!response.ok) {
+    throw new Error(`Could not load ${language} translations.`);
+  }
+
+  return response.json();
+}
+
+async function initI18n() {
+  if (!globalThis.i18next) {
+    throw new Error("i18next is not available.");
+  }
+
+  const entries = await Promise.all(
+    SUPPORTED_LANGUAGES.map(async (language) => [
+      language,
+      {
+        translation: await loadTranslationResource(language)
+      }
+    ])
+  );
+
+  await globalThis.i18next.init({
+    lng: normalizeLanguage(state.settings.language),
+    fallbackLng: "en",
+    supportedLngs: SUPPORTED_LANGUAGES,
+    resources: Object.fromEntries(entries),
+    interpolation: {
+      escapeValue: false
+    },
+    returnNull: false
+  });
 }
 
 function renderInputModeToggle({ value, action, allowCards = true, ariaLabel }) {
@@ -1092,23 +374,7 @@ function renderInputModeToggle({ value, action, allowCards = true, ariaLabel }) 
 }
 
 function t(path, vars = {}) {
-  const parts = path.split(".");
-  let current = TRANSLATIONS[state.settings.language];
-
-  for (const part of parts) {
-    current = current?.[part];
-  }
-
-  const fallbackParts = path.split(".");
-  let fallback = TRANSLATIONS.en;
-  for (const part of fallbackParts) {
-    fallback = fallback?.[part];
-  }
-
-  const value = typeof current === "undefined" ? fallback : current;
-  const text = typeof value === "function" ? value(vars) : String(value ?? path);
-
-  return text.replace(/\{\{(\w+)\}\}/g, (_match, key) => String(vars[key] ?? ""));
+  return globalThis.i18next?.t(path, vars) || path;
 }
 
 function escapeHtml(value) {
@@ -6130,7 +5396,8 @@ function updateSettingsFromControls(shouldRender = true) {
 
   state.settings.defaultWinningScore = Number.isFinite(winningScore) && winningScore > 0 ? winningScore : 200;
   state.settings.theme = theme === "light" || theme === "dark" || theme === "system" ? theme : "system";
-  state.settings.language = language === "sv" || language === "da" ? language : "en";
+  state.settings.language = normalizeLanguage(language);
+  globalThis.i18next?.changeLanguage(state.settings.language);
   saveSettings();
   if (shouldRender) {
     render();
@@ -6894,11 +6161,20 @@ function initSettingsWatchers() {
   });
 }
 
-preloadFlip7CardArt();
-render();
-wireGlobalEvents();
-initSettingsWatchers();
-refresh().catch((error) => {
+async function bootstrap() {
+  await initI18n();
+  preloadFlip7CardArt();
+  render();
+  wireGlobalEvents();
+  initSettingsWatchers();
+  refresh().catch((error) => {
+    state.loading = false;
+    state.systemError = error.message;
+    render();
+  });
+}
+
+bootstrap().catch((error) => {
   state.loading = false;
   state.systemError = error.message;
   render();
