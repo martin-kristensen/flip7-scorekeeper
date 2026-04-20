@@ -107,7 +107,7 @@
     "cardMode": "Cards",
     "cardModeHint": "Tap the cards the player has in front of them.",
     "scanRound": {
-      "action": "Score with AI",
+      "action": "Snap & Score with AI",
       "eyebrow": "AI scan",
       "title": "Scan the table",
       "captureTitle": "Capture cards",

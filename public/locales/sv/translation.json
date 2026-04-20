@@ -174,7 +174,7 @@
     "behindLeader_one": "{{count}} poäng efter",
     "behindLeader_other": "{{count}} poäng efter",
     "scanRound": {
-      "action": "Poäng med AI",
+      "action": "Fota & poängsätt med AI",
       "eyebrow": "AI-skanning",
       "title": "Skanna bordet",
       "captureTitle": "Fånga kort",
