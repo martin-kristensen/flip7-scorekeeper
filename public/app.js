@@ -43,6 +43,50 @@ const FLIP7_CARD_ART_URLS = {
   "modifier:+10": "/assets/cards/bonus_plus_10.svg",
   "modifier:x2": "/assets/cards/bonus_times_2.svg"
 };
+const FAKE_SCAN_HANDS = [
+  [
+    "number:0",
+    "number:1",
+    "number:2",
+    "number:3",
+    "number:4",
+    "number:5",
+    "number:6",
+    "modifier:+2",
+    "modifier:+4",
+    "modifier:+6",
+    "modifier:+8",
+    "modifier:+10",
+    "modifier:x2"
+  ],
+  ["number:5", "number:6", "number:9"],
+  ["number:0", "number:7", "number:11", "modifier:+4"],
+  ["number:3", "number:4", "number:8", "modifier:x2"],
+  ["number:1", "number:3", "number:5", "number:7", "number:9", "number:11", "number:12"]
+];
+
+const scanCamera = {
+  stream: null,
+  starting: false
+};
+
+function createUuid() {
+  const cryptoObject = globalThis.crypto;
+  if (cryptoObject?.randomUUID) {
+    return cryptoObject.randomUUID();
+  }
+
+  if (cryptoObject?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    cryptoObject.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function normalizeScoreInputMode(value) {
   return value === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
@@ -60,14 +104,22 @@ function getFlip7CardArtUrl(token) {
   return FLIP7_CARD_ART_URLS[token] || "";
 }
 
-function renderFlip7CardButton({ token, label, playerId, selected = false, disabled = false, modifier = false }) {
+function renderFlip7CardButton({
+  token,
+  label,
+  playerId,
+  selected = false,
+  disabled = false,
+  modifier = false,
+  action = "toggle-card-selection"
+}) {
   const artUrl = getFlip7CardArtUrl(token);
 
   return `
     <button
       class="score-card-button ${modifier ? "score-card-button-modifier" : ""} ${selected ? "is-selected" : ""}"
       type="button"
-      data-action="toggle-card-selection"
+      data-action="${escapeHtml(action)}"
       data-player-id="${escapeHtml(playerId)}"
       data-card-token="${escapeHtml(token)}"
       aria-label="${escapeHtml(label)}"
@@ -124,6 +176,7 @@ const TRANSLATIONS = {
       current: "Current",
       finished: "Finished",
       archived: "Archived",
+      close: "Close",
       currentGame: "Current game",
       noGame: "No game on the table yet.",
       open: "Open",
@@ -198,6 +251,49 @@ const TRANSLATIONS = {
       manualMode: "Manual",
       cardMode: "Cards",
       cardModeHint: "Tap the cards the player has in front of them.",
+      scanRound: {
+        action: "Score with AI",
+        eyebrow: "AI scan",
+        title: "Scan the table",
+        captureTitle: "Capture cards",
+        summaryTitle: "Review scan",
+        capture: "Capture",
+        skip: "Skip player",
+        manual: "Enter manually",
+        cancel: "Cancel scan",
+        backToScan: "Back to scan",
+        confirm: "Confirm round",
+        rescan: "Rescan",
+        retakePhoto: "Retake photo",
+        manualAddCards: "Manually add cards",
+        rowActions: "Row actions",
+        useManual: "Use manual",
+        markSkipped: "Skip",
+        playerCount: "{{current}} of {{total}}",
+        cameraReady: "Camera ready",
+        cameraStarting: "Starting camera",
+        cameraUnavailable: "Camera preview unavailable",
+        fakeOnly: "Prototype mode",
+        fakeOnlyHint: "Images are not sent anywhere yet. Fake analysis runs in the browser.",
+        processing: "Processing",
+        uploading: "Uploading",
+        ready: "Ready",
+        failed: "Needs review",
+        skipped: "Skipped",
+        manualStatus: "Manual",
+        idle: "Waiting",
+        confidence: "{{count}}% confidence",
+        noCards: "No cards yet",
+        summaryLead: "Check every row before saving the round.",
+        pendingSummary: "{{count}} scans still processing",
+        confirmBlocked: "Finish processing or edit the rows that need review.",
+        capturedPreview: "Photo captured",
+        manualPrompt: "Score for {{name}}",
+        manualInvalid: "Enter a valid score.",
+        summaryEmpty: "No scan results yet.",
+        scoreLabel: "Score",
+        detectedCards: "Detected cards"
+      },
       cardsSelected: "{{count}} cards selected",
       manualEditActive: "Manual edit active",
       flip7Bonus: "Flip 7 bonus",
@@ -851,7 +947,8 @@ const state = {
         cardPickerPlayerId: null,
         roundCardSelections: {}
       }
-    }
+    },
+    scanRound: null
   },
   homeSwipe: null,
   homeSwipeSuppressClickId: null,
@@ -1712,6 +1809,733 @@ function getFlip7CardSelectionStats(selection) {
   };
 }
 
+function createScanPlayerDraft(player) {
+  return {
+    playerId: player.id,
+    status: "idle",
+    tokens: [],
+    score: null,
+    confidence: null,
+    note: "",
+    manualValue: "",
+    imageDataUrl: null,
+    imageMeta: null,
+    timerIds: []
+  };
+}
+
+function getScanRoundPlayers(game) {
+  if (!game) {
+    return [];
+  }
+
+  const playerIds = state.draft.scanRound?.playerOrder || [];
+  const playersById = new Map(getRoundPlayers(game, "new").map((player) => [player.id, player]));
+  return playerIds.map((playerId) => playersById.get(playerId)).filter(Boolean);
+}
+
+function getScanEntry(playerId) {
+  return state.draft.scanRound?.players?.[playerId] || null;
+}
+
+function getScanStatusLabel(status) {
+  const labels = {
+    idle: t("current.scanRound.idle"),
+    uploading: t("current.scanRound.uploading"),
+    processing: t("current.scanRound.processing"),
+    ready: t("current.scanRound.ready"),
+    failed: t("current.scanRound.failed"),
+    skipped: t("current.scanRound.skipped"),
+    manual: t("current.scanRound.manualStatus")
+  };
+
+  return labels[status] || status;
+}
+
+function isScanRoundActiveForGame(game) {
+  return Boolean(state.draft.scanRound?.active && game && state.draft.scanRound.gameId === game.id);
+}
+
+function getCurrentScanPlayer(game) {
+  const players = getScanRoundPlayers(game);
+  const index = state.draft.scanRound?.currentPlayerIndex ?? 0;
+  return players[index] || null;
+}
+
+function clearScanTimers(scanRound = state.draft.scanRound) {
+  if (!scanRound?.players) {
+    return;
+  }
+
+  Object.values(scanRound.players).forEach((entry) => {
+    if (!Array.isArray(entry.timerIds)) {
+      return;
+    }
+
+    entry.timerIds.forEach((timerId) => window.clearTimeout(timerId));
+    entry.timerIds = [];
+  });
+}
+
+function stopScanCamera() {
+  if (scanCamera.stream) {
+    scanCamera.stream.getTracks().forEach((track) => track.stop());
+  }
+
+  scanCamera.stream = null;
+  scanCamera.starting = false;
+}
+
+async function attachScanCamera() {
+  const video = document.querySelector("[data-scan-camera]");
+  if (!(video instanceof HTMLVideoElement) || !state.draft.scanRound?.active) {
+    return;
+  }
+
+  if (scanCamera.stream) {
+    video.srcObject = scanCamera.stream;
+    return;
+  }
+
+  if (state.draft.scanRound.cameraStatus === "unavailable") {
+    return;
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    if (state.draft.scanRound) {
+      state.draft.scanRound.cameraStatus = "unavailable";
+      render();
+    }
+    return;
+  }
+
+  if (scanCamera.starting) {
+    return;
+  }
+
+  scanCamera.starting = true;
+  try {
+    scanCamera.stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" }
+      },
+      audio: false
+    });
+    video.srcObject = scanCamera.stream;
+    if (state.draft.scanRound) {
+      state.draft.scanRound.cameraStatus = "ready";
+    }
+  } catch {
+    if (state.draft.scanRound) {
+      state.draft.scanRound.cameraStatus = "unavailable";
+    }
+  } finally {
+    scanCamera.starting = false;
+    if (state.draft.scanRound?.active) {
+      render();
+    }
+  }
+}
+
+function makeScanPlaceholderImage(player, index) {
+  const initial = String(player?.name || "?").trim().slice(0, 1).toUpperCase() || "?";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">
+      <rect width="640" height="420" fill="#1c1713"/>
+      <rect x="56" y="42" width="528" height="336" rx="28" fill="#fffaf3" opacity="0.08"/>
+      <g fill="#ff8a48" opacity="0.9">
+        <rect x="164" y="118" width="82" height="126" rx="10" transform="rotate(-7 205 181)"/>
+        <rect x="252" y="98" width="82" height="126" rx="10"/>
+        <rect x="340" y="118" width="82" height="126" rx="10" transform="rotate(7 381 181)"/>
+      </g>
+      <text x="320" y="294" text-anchor="middle" font-family="Arial, sans-serif" font-size="56" font-weight="800" fill="#f6efe7">${initial}</text>
+      <text x="320" y="334" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#c8b8a7">Scan prototype ${index + 1}</text>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function captureScanPreview(player, index) {
+  const video = document.querySelector("[data-scan-camera]");
+  if (video instanceof HTMLVideoElement && video.videoWidth > 0 && video.videoHeight > 0) {
+    const canvas = document.createElement("canvas");
+    const maxWidth = 960;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.72);
+    }
+  }
+
+  return makeScanPlaceholderImage(player, index);
+}
+
+function hasUsableScanCameraPreview() {
+  const video = document.querySelector("[data-scan-camera]");
+  return video instanceof HTMLVideoElement && video.videoWidth > 0 && video.videoHeight > 0;
+}
+
+function openScanFileCapture() {
+  const input = document.querySelector("[data-scan-file-capture]");
+  if (input instanceof HTMLInputElement) {
+    input.click();
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(reader.error || new Error("Failed to read image.")));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function prepareScanImageForRecognition(file) {
+  if (window.Flip7ScanImage?.prepareScanImageForUpload) {
+    return window.Flip7ScanImage.prepareScanImageForUpload(file);
+  }
+
+  const imageDataUrl = await readFileAsDataUrl(file);
+  return {
+    imageDataUrl,
+    originalBytes: file.size,
+    uploadBytes: file.size,
+    width: null,
+    height: null,
+    sourceWidth: null,
+    sourceHeight: null,
+    originalType: file.type || "unknown",
+    outputType: file.type || "unknown",
+    resized: false
+  };
+}
+
+async function readScanFileCapture(file) {
+  if (!(file instanceof File) || !file.type.startsWith("image/")) {
+    return;
+  }
+
+  const playerId = state.draft.scanRound?.pendingCapturePlayerId;
+  if (!playerId) {
+    return;
+  }
+
+  state.draft.scanRound.pendingCapturePlayerId = null;
+
+  try {
+    const preparedImage = await prepareScanImageForRecognition(file);
+    void completeScanPlayerCapture(playerId, preparedImage.imageDataUrl, preparedImage);
+  } catch (error) {
+    void completeScanPlayerCapture(playerId, null, {
+      originalBytes: file.size,
+      uploadBytes: file.size,
+      warning: error instanceof Error ? error.message : "Image processing failed."
+    });
+  }
+}
+
+async function completeScanPlayerCapture(playerId, imageDataUrl = null, imageMeta = null) {
+  const game = state.data.currentGame;
+  const scanRound = state.draft.scanRound;
+  if (!scanRound || !playerId) {
+    return;
+  }
+
+  const players = getScanRoundPlayers(game);
+  const player = players.find((entry) => entry.id === playerId);
+  const index = players.findIndex((entry) => entry.id === playerId);
+  const entry = getScanEntry(playerId);
+  if (!player || !entry) {
+    return;
+  }
+
+  clearScanTimers({ players: { [playerId]: entry } });
+  Object.assign(entry, {
+    status: "uploading",
+    tokens: [],
+    score: null,
+    confidence: null,
+    note: "",
+    manualValue: "",
+    imageDataUrl,
+    imageMeta
+  });
+  render();
+
+  if (!imageDataUrl) {
+    Object.assign(entry, {
+      status: "failed",
+      note: t("current.scanRound.failed")
+    });
+    render();
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/scan/recognize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        imageDataUrl,
+        playerId,
+        playerName: player.name,
+        gameId: scanRound.gameId,
+        imageMeta
+      })
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(String(payload?.error || payload?.message || t("current.scanRound.failed")));
+    }
+
+    const tokens = Array.isArray(payload?.tokens)
+      ? payload.tokens.filter((token) => typeof token === "string" && token.trim().length > 0).map((token) => token.trim())
+      : [];
+    const stats = getFlip7CardSelectionStats(tokens);
+    const confidence = typeof payload?.confidence === "number" && Number.isFinite(payload.confidence)
+      ? Math.max(0, Math.min(1, payload.confidence))
+      : null;
+    const warnings = Array.isArray(payload?.warnings)
+      ? payload.warnings.filter((warning) => typeof warning === "string" && warning.trim().length > 0)
+      : [];
+
+    Object.assign(entry, {
+      status: tokens.length ? "ready" : "failed",
+      tokens,
+      score: tokens.length ? stats.total : null,
+      confidence,
+      note: warnings.join(" • ")
+    });
+    console.info("[scan-recognition]", {
+      playerId,
+      playerName: player.name,
+      tokens,
+      score: tokens.length ? stats.total : null,
+      confidence,
+      warnings,
+      imageMeta
+    });
+  } catch (error) {
+    Object.assign(entry, {
+      status: "failed",
+      tokens: [],
+      score: null,
+      confidence: null,
+      note: error instanceof Error ? error.message : t("current.scanRound.failed")
+    });
+    console.error("[scan-recognition]", error);
+  }
+
+  render();
+}
+
+function startScanRound() {
+  const game = state.data.currentGame;
+  if (!game || game.isFinished) {
+    return;
+  }
+
+  const players = getRoundPlayers(game, "new");
+  if (!players.length) {
+    return;
+  }
+
+  cacheRoundDraft(game, "new");
+  state.draft.scanRound = {
+    active: true,
+    gameId: game.id,
+    step: "summary",
+    currentPlayerIndex: 0,
+    manualPlayerId: null,
+    manualInput: "",
+    manualCardsPlayerId: null,
+    focusScorePlayerId: null,
+    pendingCapturePlayerId: null,
+    summaryMenuPlayerId: null,
+    cameraStatus: "starting",
+    playerOrder: players.map((player) => player.id),
+    players: Object.fromEntries(players.map((player) => [player.id, createScanPlayerDraft(player)]))
+  };
+  render();
+}
+
+function cancelScanRound({ silent = false } = {}) {
+  clearScanTimers();
+  stopScanCamera();
+  state.draft.scanRound = null;
+  if (!silent) {
+    render();
+  }
+}
+
+function advanceScanPlayer() {
+  if (!state.draft.scanRound) {
+    return;
+  }
+
+  state.draft.scanRound.step = "summary";
+  state.draft.scanRound.manualPlayerId = null;
+  state.draft.scanRound.manualInput = "";
+  state.draft.scanRound.manualCardsPlayerId = null;
+  state.draft.scanRound.pendingCapturePlayerId = null;
+}
+
+function openScanFileCapture(playerId = null) {
+  const scanRound = state.draft.scanRound;
+  if (!scanRound) {
+    return;
+  }
+
+  scanRound.pendingCapturePlayerId = playerId;
+  const input = document.querySelector("[data-scan-file-capture]");
+  if (input instanceof HTMLInputElement) {
+    input.click();
+  }
+}
+
+function skipCurrentScanPlayer() {
+  const player = getCurrentScanPlayer(state.data.currentGame);
+  const entry = player ? getScanEntry(player.id) : null;
+  if (!entry) {
+    return;
+  }
+
+  clearScanTimers({ players: { [player.id]: entry } });
+  Object.assign(entry, {
+    status: "skipped",
+    tokens: [],
+    score: 0,
+    confidence: null,
+    note: t("current.scanRound.skipped"),
+    manualValue: "0"
+  });
+  advanceScanPlayer();
+  render();
+}
+
+function setScanManualScore(playerId, value, { advance = false } = {}) {
+  const entry = getScanEntry(playerId);
+  if (!entry) {
+    return false;
+  }
+
+  const score = Number(value);
+  if (!Number.isFinite(score)) {
+    return false;
+  }
+
+  clearScanTimers({ players: { [playerId]: entry } });
+  Object.assign(entry, {
+    status: "manual",
+    tokens: [],
+    score,
+    confidence: null,
+    note: t("current.scanRound.manualStatus"),
+    manualValue: String(value).trim()
+  });
+  if (advance) {
+    advanceScanPlayer();
+  }
+  render();
+  return true;
+}
+
+function enterManualForCurrentScanPlayer() {
+  const player = getCurrentScanPlayer(state.data.currentGame);
+  if (!player || !state.draft.scanRound) {
+    return;
+  }
+
+  const entry = getScanEntry(player.id);
+  state.draft.scanRound.manualPlayerId = player.id;
+  state.draft.scanRound.manualInput = entry?.manualValue || (entry?.score !== null && entry?.score !== undefined ? String(entry.score) : "");
+  render();
+}
+
+function closeScanSummaryMenu() {
+  if (state.draft.scanRound?.summaryMenuPlayerId) {
+    state.draft.scanRound.summaryMenuPlayerId = null;
+    render();
+  }
+}
+
+function toggleScanSummaryMenu(playerId) {
+  if (!state.draft.scanRound || state.draft.scanRound.step !== "summary") {
+    return;
+  }
+
+  state.draft.scanRound.manualCardsPlayerId = null;
+  state.draft.scanRound.summaryMenuPlayerId =
+    state.draft.scanRound.summaryMenuPlayerId === playerId ? null : playerId;
+  render();
+}
+
+function closeScanManualCards() {
+  if (state.draft.scanRound?.manualCardsPlayerId) {
+    state.draft.scanRound.manualCardsPlayerId = null;
+    render();
+  }
+}
+
+function openScanManualCards(playerId) {
+  if (!state.draft.scanRound || state.draft.scanRound.step !== "summary") {
+    return;
+  }
+
+  const nextPlayerId =
+    state.draft.scanRound.manualCardsPlayerId === playerId ? null : playerId;
+  state.draft.scanRound.summaryMenuPlayerId = null;
+  state.draft.scanRound.manualPlayerId = null;
+  state.draft.scanRound.manualInput = "";
+  state.draft.scanRound.manualCardsPlayerId = nextPlayerId;
+  render();
+}
+
+function setScanManualCardSelection(playerId, selection) {
+  const entry = getScanEntry(playerId);
+  if (!entry) {
+    return null;
+  }
+
+  const normalized = Array.isArray(selection) ? selection.map(normalizeCardToken).filter((token) => token !== null) : [];
+  const stats = getFlip7CardSelectionStats(normalized);
+  clearScanTimers({ players: { [playerId]: entry } });
+  Object.assign(entry, {
+    status: "manual",
+    tokens: normalized,
+    score: normalized.length > 0 ? stats.total : null,
+    confidence: null,
+    note: t("current.scanRound.manualStatus"),
+    manualValue: ""
+  });
+  render();
+  return stats;
+}
+
+function toggleScanManualCardSelection(playerId, token) {
+  const entry = getScanEntry(playerId);
+  if (!entry) {
+    return null;
+  }
+
+  const normalizedToken = normalizeCardToken(token);
+  if (!normalizedToken) {
+    return null;
+  }
+
+  const currentSelection = Array.isArray(entry.tokens) ? [...entry.tokens] : [];
+  const currentStats = getFlip7CardSelectionStats(currentSelection);
+  const existingIndex = currentSelection.indexOf(normalizedToken);
+
+  if (existingIndex >= 0) {
+    currentSelection.splice(existingIndex, 1);
+  } else {
+    const isNumberCard = normalizedToken.startsWith("number:");
+    if (isNumberCard && currentStats.numberCount === 7) {
+      return currentStats;
+    }
+
+    currentSelection.push(normalizedToken);
+  }
+
+  state.draft.scanRound.manualCardsPlayerId = playerId;
+  return setScanManualCardSelection(playerId, currentSelection);
+}
+
+function clearScanManualCardSelection(playerId) {
+  state.draft.scanRound.manualCardsPlayerId = playerId;
+  return setScanManualCardSelection(playerId, []);
+}
+
+function renderScanManualCardPicker(player, entry) {
+  const selection = Array.isArray(entry.tokens) ? entry.tokens : [];
+  const stats = getFlip7CardSelectionStats(selection);
+  const selectionLabel = stats.flip7Bonus
+    ? t("current.flip7Achieved")
+    : t("current.cardsSelected", { count: stats.selectedCards.length });
+  const summaryLabel = `${formatNumber(stats.total)} ${t("common.points")}`;
+  const isLocked = stats.numberCount === 7;
+
+  return `
+    <div class="score-card-picker">
+      <div class="score-card-picker-head">
+        <span class="muted">${escapeHtml(t("current.cardModeHint"))}</span>
+        <span class="pill ${stats.flip7Bonus ? "pill-success" : "pill-muted"}">${escapeHtml(selectionLabel)}</span>
+      </div>
+      <div class="score-card-picker-grid score-card-picker-grid-numbers">
+        ${FLIP7_NUMBER_CARDS.map((value) => {
+          const token = `number:${value}`;
+          const isSelected = selection.includes(token);
+          return renderFlip7CardButton({
+            token,
+            label: String(value),
+            playerId: player.id,
+            selected: isSelected,
+            disabled: isLocked && !isSelected,
+            action: "scan-summary-toggle-card"
+          });
+        }).join("")}
+      </div>
+      <div class="score-card-picker-divider"></div>
+      <div class="score-card-picker-grid score-card-picker-grid-modifiers">
+        ${FLIP7_MODIFIER_CARDS.map((card) => {
+          const isSelected = selection.includes(card.token);
+          return renderFlip7CardButton({
+            token: card.token,
+            label: card.label,
+            playerId: player.id,
+            selected: isSelected,
+            disabled: isLocked && !isSelected,
+            modifier: true,
+            action: "scan-summary-toggle-card"
+          });
+        }).join("")}
+      </div>
+      <div class="score-card-picker-footer">
+        <span class="score-card-picker-summary">${escapeHtml(summaryLabel)}</span>
+        <button
+          class="secondary-action score-card-clear"
+          type="button"
+          data-action="scan-summary-clear-cards"
+          data-player-id="${escapeHtml(player.id)}"
+        >
+          ${escapeHtml(t("current.clearCards"))}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderScanManualCardPanel(player, entry) {
+  return `
+    <section class="scan-summary-manual-panel score-card-picker-shell" data-player-id="${escapeHtml(player.id)}">
+      <div class="scan-summary-manual-head">
+        <div class="scan-summary-manual-copy">
+          <p class="eyebrow">${escapeHtml(t("current.scanRound.manualAddCards"))}</p>
+          <strong>${escapeHtml(player.name)}</strong>
+        </div>
+        <button
+          class="secondary-action scan-summary-manual-close"
+          type="button"
+          data-action="scan-summary-close-cards"
+          data-player-id="${escapeHtml(player.id)}"
+        >
+          ${escapeHtml(t("common.close"))}
+        </button>
+      </div>
+      ${renderScanManualCardPicker(player, entry)}
+    </section>
+  `;
+}
+
+function focusScanSummaryScoreInput(playerId) {
+  if (!state.draft.scanRound) {
+    return;
+  }
+
+  state.draft.scanRound.focusScorePlayerId = playerId;
+  state.draft.scanRound.summaryMenuPlayerId = null;
+  render();
+}
+
+function rescanSummaryPlayer(playerId) {
+  if (!state.draft.scanRound) {
+    return;
+  }
+
+  state.draft.scanRound.summaryMenuPlayerId = null;
+  closeScanManualCards();
+  const entry = getScanEntry(playerId);
+  if (entry?.imageDataUrl) {
+    void completeScanPlayerCapture(playerId, entry.imageDataUrl, entry.imageMeta || null);
+    return;
+  }
+
+  openScanFileCapture(playerId);
+}
+
+function retakeSummaryPlayer(playerId) {
+  if (!state.draft.scanRound) {
+    return;
+  }
+
+  state.draft.scanRound.summaryMenuPlayerId = null;
+  closeScanManualCards();
+  openScanFileCapture(playerId);
+}
+
+function captureSummaryPlayer(playerId) {
+  if (!state.draft.scanRound) {
+    return;
+  }
+
+  state.draft.scanRound.summaryMenuPlayerId = null;
+  closeScanManualCards();
+  openScanFileCapture(playerId);
+}
+
+function enterManualSummaryPlayer(playerId) {
+  focusScanSummaryScoreInput(playerId);
+}
+
+function getScanRoundPendingCount() {
+  const entries = Object.values(state.draft.scanRound?.players || {});
+  return entries.filter((entry) => ["idle", "uploading", "processing"].includes(entry.status)).length;
+}
+
+function isScanRoundReadyToConfirm() {
+  const entries = Object.values(state.draft.scanRound?.players || {});
+  return (
+    entries.length > 0 &&
+    entries.every((entry) => {
+      if (entry.status === "manual") {
+        return (
+          (Array.isArray(entry.tokens) && entry.tokens.length > 0) ||
+          (typeof entry.manualValue === "string" && entry.manualValue.trim().length > 0) ||
+          (typeof entry.score === "number" && Number.isFinite(entry.score))
+        );
+      }
+
+      return ["ready", "skipped"].includes(entry.status);
+    })
+  );
+}
+
+async function confirmScanRound() {
+  const game = state.data.currentGame;
+  const scanRound = state.draft.scanRound;
+  if (!game || !scanRound || !isScanRoundReadyToConfirm()) {
+    return;
+  }
+
+  const players = getScanRoundPlayers(game);
+  const nextScores = {};
+  const nextSelections = {};
+  players.forEach((player) => {
+    const entry = getScanEntry(player.id);
+    nextScores[player.id] = String(entry?.score ?? 0);
+    nextSelections[player.id] = Array.isArray(entry?.tokens) ? entry.tokens : [];
+  });
+
+  clearScanTimers();
+  stopScanCamera();
+  state.draft.roundScores = nextScores;
+  state.draft.roundCardSelections = nextSelections;
+  state.draft.scoreInputMode = isClassicCardModeGame(game) ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
+  state.draft.cardPickerPlayerId = players[0]?.id || null;
+  cacheRoundDraft(game, "new");
+  state.draft.scanRound = null;
+  await saveRound();
+}
+
 function getRoundCardSelections(game, roundKey = getRoundDraftKey()) {
   const players = getRoundPlayers(game, roundKey);
   const selections = state.draft.roundCardSelections || {};
@@ -2003,7 +2827,7 @@ function restoreAppState(snapshot) {
 
 function makePlayers(playerNames) {
   return Array.from(new Set(playerNames.map((name) => name.trim()).filter(Boolean))).map((name) => ({
-    id: crypto.randomUUID(),
+    id: createUuid(),
     name
   }));
 }
@@ -2013,7 +2837,7 @@ function makeNewGame({ title, gameMode, winningScore, defaultScoreInputMode, pla
   const timestamp = now();
 
   return {
-    id: crypto.randomUUID(),
+    id: createUuid(),
     title: title.trim() || "Flip 7 Game",
     gameMode,
     winningScore,
@@ -2571,7 +3395,7 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
     includeDefaultScoreInputMode: shouldPersistLiveInputMode
   });
   const optimisticRound = {
-    id: selectedRound?.id || crypto.randomUUID(),
+    id: selectedRound?.id || createUuid(),
     createdAt: selectedRound?.createdAt || now(),
     note: requestPayload.note,
     scores: requestPayload.scores
@@ -3194,6 +4018,165 @@ function renderExistingGamesScreen() {
   `;
 }
 
+function getCardTokenLabel(token) {
+  if (token.startsWith("number:")) {
+    return token.slice("number:".length);
+  }
+
+  if (token.startsWith("modifier:")) {
+    return token.slice("modifier:".length);
+  }
+
+  return token;
+}
+
+function renderScanTokenList(tokens) {
+  if (!tokens?.length) {
+    return `<span class="muted">${escapeHtml(t("current.scanRound.noCards"))}</span>`;
+  }
+
+  return tokens
+    .map((token) => `<span class="scan-token">${escapeHtml(getCardTokenLabel(token))}</span>`)
+    .join("");
+}
+
+function setScanUiActive(isActive) {
+  if (isActive) {
+    document.body.setAttribute("data-scan-ui-active", "true");
+  } else {
+    document.body.removeAttribute("data-scan-ui-active");
+  }
+}
+
+function setScanCaptureUiActive(isActive) {
+  if (isActive) {
+    document.body.setAttribute("data-scan-capture-active", "true");
+  } else {
+    document.body.removeAttribute("data-scan-capture-active");
+  }
+}
+
+function renderScanRoundScreen(game) {
+  const scanRound = state.draft.scanRound;
+  const players = getScanRoundPlayers(game);
+  if (!scanRound || !players.length) {
+    setScanCaptureUiActive(false);
+    return "";
+  }
+
+  const currentPlayer = getCurrentScanPlayer(game);
+  const currentEntry = currentPlayer ? getScanEntry(currentPlayer.id) : null;
+  const pendingCount = getScanRoundPendingCount();
+  const canConfirm = isScanRoundReadyToConfirm();
+  setScanUiActive(scanRound.active);
+  setScanCaptureUiActive(false);
+
+  const summaryView = () => `
+    <section class="scan-round-view scan-round-summary">
+      <div class="scan-summary-list">
+        ${
+          players
+            .map((player) => {
+              const entry = getScanEntry(player.id) || createScanPlayerDraft(player);
+              const scoreValue = entry.score === null || entry.score === undefined ? "" : String(entry.score);
+              const menuOpen = state.draft.scanRound?.summaryMenuPlayerId === player.id;
+              const manualCardsOpen = state.draft.scanRound?.manualCardsPlayerId === player.id;
+              const statusClass = `scan-summary-status--${entry.status}`;
+              const denseTokens = (entry.tokens || []).length > 6;
+              const hasRowActions = ["ready", "failed", "manual", "skipped"].includes(entry.status);
+              const showCaptureButton = ["idle", "failed", "skipped"].includes(entry.status);
+              return `
+                <article class="scan-summary-row ${denseTokens ? "is-dense" : ""} ${menuOpen ? "is-menu-open" : ""} ${manualCardsOpen ? "is-manual-cards-open" : ""} ${showCaptureButton ? "is-waiting" : "is-captured"} ${hasRowActions ? "has-actions" : ""}" data-player-id="${escapeHtml(
+                  player.id
+                )}">
+                  <div class="scan-summary-main">
+                    <div class="scan-summary-head">
+                      <div class="scan-summary-headline">
+                        <strong title="${escapeHtml(player.name)}">${escapeHtml(player.name)}</strong>
+                        <span class="scan-summary-status ${statusClass}">
+                          ${escapeHtml(getScanStatusLabel(entry.status))}
+                        </span>
+                      </div>
+                      ${
+                        hasRowActions
+                          ? `
+                            <button
+                              class="secondary-action scan-summary-edit-trigger"
+                              type="button"
+                              data-action="scan-summary-toggle-menu"
+                              data-player-id="${escapeHtml(player.id)}"
+                              aria-label="${escapeHtml(t("current.scanRound.rowActions"))}"
+                              aria-haspopup="menu"
+                              aria-expanded="${menuOpen ? "true" : "false"}"
+                            >
+                              Edit
+                            </button>
+                            <div class="scan-summary-actions ${menuOpen ? "is-open" : ""}" role="menu" aria-hidden="${menuOpen ? "false" : "true"}">
+                              <button class="menu-action" type="button" data-action="scan-summary-rescan" data-player-id="${escapeHtml(player.id)}">
+                                ${escapeHtml(t("current.scanRound.rescan"))}
+                              </button>
+                              <button class="menu-action" type="button" data-action="scan-summary-retake" data-player-id="${escapeHtml(player.id)}">
+                                ${escapeHtml(t("current.scanRound.retakePhoto"))}
+                              </button>
+                              <button class="menu-action" type="button" data-action="scan-summary-manual-cards" data-player-id="${escapeHtml(player.id)}">
+                                ${escapeHtml(t("current.scanRound.manualAddCards"))}
+                              </button>
+                            </div>
+                          `
+                          : ""
+                      }
+                    </div>
+                    <div class="scan-summary-cards ${denseTokens ? "is-dense" : ""}" aria-label="${escapeHtml(t("current.scanRound.detectedCards"))}">
+                      ${renderScanTokenList(entry.tokens)}
+                    </div>
+                  </div>
+                  ${
+                    showCaptureButton
+                      ? `
+                        <div class="scan-summary-capture-col">
+                          <button class="secondary-action scan-summary-capture-action" type="button" data-action="scan-summary-capture" data-player-id="${escapeHtml(player.id)}">
+                            ${escapeHtml(t("current.scanRound.capture"))}
+                          </button>
+                        </div>
+                      `
+                      : ""
+                  }
+                    <div class="scan-summary-score">
+                      <label class="field scan-summary-score-field">
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="${escapeHtml(t("current.scanRound.scoreLabel"))}"
+                          autocomplete="off"
+                          data-scan-score-player-id="${escapeHtml(player.id)}"
+                          value="${escapeHtml(scoreValue)}"
+                          ${["uploading", "processing"].includes(entry.status) ? "disabled" : ""}
+                        />
+                      </label>
+                    </div>
+                </article>
+                ${manualCardsOpen ? renderScanManualCardPanel(player, entry) : ""}
+              `;
+            })
+            .join("") || `<p class="empty-state">${escapeHtml(t("current.scanRound.summaryEmpty"))}</p>`
+        }
+      </div>
+
+      <div class="sticky-actions scan-summary-sticky">
+        <button class="secondary-action" type="button" data-action="cancel-scan-round">
+          ${escapeHtml(t("current.scanRound.cancel"))}
+        </button>
+        <button class="primary-action" type="button" data-action="scan-confirm-round" ${canConfirm ? "" : "disabled"}>
+          ${escapeHtml(t("current.scanRound.confirm"))}
+        </button>
+      </div>
+    </section>
+  `;
+
+  return summaryView();
+}
+
 function renderCurrentGameScreen() {
   const screen = elements.screens.currentGame;
   const game = state.data.currentGame;
@@ -3220,6 +4203,18 @@ function renderCurrentGameScreen() {
   }
 
   ensureRoundDraft(game);
+  if (isScanRoundActiveForGame(game)) {
+    screen.removeAttribute("data-current-game-editor-key");
+    screen.removeAttribute("data-current-game-details-key");
+    screen.dataset.currentGameId = game.id;
+    screen.innerHTML = renderScanRoundScreen(game);
+    return;
+  }
+
+  if (state.draft.scanRound?.active) {
+    cancelScanRound({ silent: true });
+  }
+
   const progress = getGameProgress(game);
   const winnerPresentation = getWinnerPresentation(game);
   const winner = winnerPresentation.winners[0] || null;
@@ -3245,7 +4240,8 @@ function renderCurrentGameScreen() {
   const draftForSelectedRound =
     state.draft.roundDrafts[currentRoundKey] || createRoundDraftFromRound(game, selectedRound);
   const scoreInputMode = draftForSelectedRound.scoreInputMode || SCORE_INPUT_MODES.manual;
-  const cardModeEnabled = Boolean(canEditScores && isClassicCardModeGame(game) && scoreInputMode === SCORE_INPUT_MODES.cards);
+  const cardModeAvailable = Boolean(canEditScores && isClassicCardModeGame(game));
+  const cardModeEnabled = Boolean(cardModeAvailable && scoreInputMode === SCORE_INPUT_MODES.cards);
   const showLiveScorePreview = currentRoundKey === "new" && canEditScores;
   const currentCardPickerPlayerId = draftForSelectedRound.cardPickerPlayerId || null;
   const cardPickerNavigator = getCardPickerNavigatorState(game);
@@ -3474,6 +4470,13 @@ function renderCurrentGameScreen() {
               ${escapeHtml(t("current.leaderFirst"))}
             </button>
           </div>
+          ${
+            canEditScores && roundNavigator.isLive && isClassicCardModeGame(game)
+              ? `<button class="secondary-action current-scan-entry" type="button" data-action="start-scan-round">${escapeHtml(
+                  t("current.scanRound.action")
+                )}</button>`
+              : ""
+          }
         </div>
       <div class="score-list">
           ${scoreRowPlayers
@@ -3587,7 +4590,7 @@ function renderCurrentGameScreen() {
   `;
 
   const roundInputSettingsHtml = () =>
-    cardModeEnabled
+    cardModeAvailable
       ? `
         <div class="stack-tight current-details-settings">
           <strong>${escapeHtml(t("current.scoreInputMode"))}</strong>
@@ -4204,10 +5207,16 @@ function renderChrome() {
 }
 
 function render() {
+  if (state.route !== "current-game" && state.draft.scanRound?.active) {
+    cancelScanRound({ silent: true });
+  }
+
   if (state.route !== "current-game") {
     hideCelebration();
   }
 
+  setScanUiActive(state.route === "current-game" && Boolean(state.draft.scanRound?.active));
+  setScanCaptureUiActive(state.route === "current-game" && state.draft.scanRound?.step === "capture");
   renderChrome();
 
   const routeMap = {
@@ -4233,6 +5242,10 @@ function render() {
 
   const focusTarget = state.draft.currentGameFocusTarget;
   state.draft.currentGameFocusTarget = null;
+  const scanFocusTarget = state.draft.scanRound?.focusScorePlayerId || null;
+  if (state.draft.scanRound) {
+    state.draft.scanRound.focusScorePlayerId = null;
+  }
   requestAnimationFrame(() => {
     if (state.route === "new-game") {
       document.querySelector("#new-player-input")?.focus();
@@ -4246,6 +5259,10 @@ function render() {
         focusCurrentPlayerInput();
       } else if (focusTarget === "rename-player") {
         focusCurrentPlayerRenameInput();
+      } else if (scanFocusTarget) {
+        document
+          .querySelector(`[data-scan-score-player-id="${scanFocusTarget}"]`)
+          ?.focus();
       } else {
         focusCurrentScoreInput();
       }
@@ -4794,7 +5811,7 @@ async function addCurrentGamePlayer(nameInput = state.draft.currentGamePlayerInp
       };
     } else {
       players.push({
-        id: crypto.randomUUID(),
+        id: createUuid(),
         name,
         isActive: true,
         joinedAt: timestamp,
@@ -5373,6 +6390,26 @@ function wireGlobalEvents() {
       state.draft.currentGamePlayerInput = target.value;
     } else if (target.id === "current-player-rename-input") {
       state.draft.currentGameRenameInput = target.value;
+    } else if (target.matches("[data-scan-score-player-id]")) {
+      const playerId = target.dataset.scanScorePlayerId;
+      const entry = playerId ? getScanEntry(playerId) : null;
+      const value = target.value.trim();
+      const score = Number(value);
+      if (entry) {
+        entry.manualValue = value;
+        if (value.length && Number.isFinite(score)) {
+          clearScanTimers({ players: { [playerId]: entry } });
+          entry.status = "manual";
+          entry.score = score;
+          entry.tokens = [];
+          entry.confidence = null;
+          entry.note = t("current.scanRound.manualStatus");
+        }
+      }
+    } else if (target.matches("[data-scan-current-manual]")) {
+      if (state.draft.scanRound) {
+        state.draft.scanRound.manualInput = target.value;
+      }
     } else if (target.matches('#current-game-form input[data-player-id]')) {
       const playerId = target.dataset.playerId;
       if (playerId) {
@@ -5429,6 +6466,20 @@ function wireGlobalEvents() {
 
     if (target.id === "settings-winning-score" || target.id === "settings-theme" || target.id === "settings-language") {
       updateSettingsFromControls();
+      return;
+    }
+
+    if (target.matches("[data-scan-file-capture]") && target instanceof HTMLInputElement) {
+      const file = target.files?.[0];
+      target.value = "";
+      if (file) {
+        readScanFileCapture(file);
+      }
+      return;
+    }
+
+    if (target.matches("[data-scan-score-player-id]")) {
+      render();
     }
   });
 
@@ -5609,6 +6660,49 @@ function wireGlobalEvents() {
         cancelCurrentGamePlayerRename();
       } else if (action === "remove-current-player" && actionTarget.dataset.playerId) {
         await removeCurrentGamePlayer(actionTarget.dataset.playerId);
+      } else if (action === "start-scan-round") {
+        startScanRound();
+      } else if (action === "cancel-scan-round") {
+        cancelScanRound();
+      } else if (action === "scan-capture") {
+        openScanFileCapture();
+      } else if (action === "scan-skip") {
+        skipCurrentScanPlayer();
+      } else if (action === "scan-manual-current") {
+        enterManualForCurrentScanPlayer();
+      } else if (action === "scan-save-manual-current") {
+        const player = getCurrentScanPlayer(state.data.currentGame);
+        if (!player || !state.draft.scanRound) {
+          return;
+        }
+
+        if (!setScanManualScore(player.id, state.draft.scanRound.manualInput, { advance: true })) {
+          showToast(t("current.scanRound.manualInvalid"), true);
+        }
+      } else if (action === "scan-cancel-manual-current") {
+        if (state.draft.scanRound) {
+          state.draft.scanRound.manualPlayerId = null;
+          state.draft.scanRound.manualInput = "";
+          render();
+        }
+      } else if (action === "scan-confirm-round") {
+        await confirmScanRound();
+      } else if (action === "scan-summary-capture" && actionTarget.dataset.playerId) {
+        captureSummaryPlayer(actionTarget.dataset.playerId);
+      } else if (action === "scan-summary-rescan" && actionTarget.dataset.playerId) {
+        rescanSummaryPlayer(actionTarget.dataset.playerId);
+      } else if (action === "scan-summary-retake" && actionTarget.dataset.playerId) {
+        retakeSummaryPlayer(actionTarget.dataset.playerId);
+      } else if (action === "scan-summary-manual-cards" && actionTarget.dataset.playerId) {
+        openScanManualCards(actionTarget.dataset.playerId);
+      } else if (action === "scan-summary-toggle-card" && actionTarget.dataset.playerId && actionTarget.dataset.cardToken) {
+        toggleScanManualCardSelection(actionTarget.dataset.playerId, actionTarget.dataset.cardToken);
+      } else if (action === "scan-summary-clear-cards" && actionTarget.dataset.playerId) {
+        clearScanManualCardSelection(actionTarget.dataset.playerId);
+      } else if (action === "scan-summary-close-cards") {
+        closeScanManualCards();
+      } else if (action === "scan-summary-toggle-menu" && actionTarget.dataset.playerId) {
+        toggleScanSummaryMenu(actionTarget.dataset.playerId);
       } else if (action === "set-current-order" && actionTarget.dataset.order) {
         state.draft.currentGameOrder = actionTarget.dataset.order === "leader" ? "leader" : "entered";
         render();
@@ -5712,6 +6806,35 @@ function wireGlobalEvents() {
         setRoute("current-game");
       }
       return;
+    }
+
+    const scanRound = state.draft.scanRound;
+    const scanRow = target.closest(".scan-summary-row");
+    const scanMenu = target.closest(".scan-summary-actions");
+    const scanManualPanel = target.closest(".scan-summary-manual-panel");
+    const interactiveWithinRow = target.closest("button, input, select, textarea, label, a");
+    if (scanRound?.step === "summary") {
+      if (
+        scanRound.manualCardsPlayerId &&
+        !scanManualPanel &&
+        (!scanRow || scanRow.dataset.playerId !== scanRound.manualCardsPlayerId)
+      ) {
+        closeScanManualCards();
+        return;
+      }
+
+      if (scanRound.summaryMenuPlayerId && !scanMenu && !scanRow) {
+        closeScanSummaryMenu();
+        return;
+      }
+
+      if (!actionTarget && scanRow && !interactiveWithinRow && scanRow.classList.contains("has-actions")) {
+        const playerId = scanRow.dataset.playerId;
+        if (playerId) {
+          toggleScanSummaryMenu(playerId);
+          return;
+        }
+      }
     }
 
     const gameCard = target.closest("[data-game-card]");

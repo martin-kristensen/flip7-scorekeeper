@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flip 7 Scorekeeper | Scan Debug</title>
+    <meta name="theme-color" content="#ff9f5d" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <!-- CLARITY_SNIPPET -->
+  </head>
+  <body class="scan-debug-page">
+    <main class="scan-debug-shell">
+      <header class="scan-debug-hero surface-card">
+        <div class="scan-debug-hero-copy">
+          <p class="eyebrow">Scan debug</p>
+          <h1 class="screen-title">OpenAI card recognition</h1>
+          <p class="screen-lead">
+            Capture or upload one image, send it to <code>/api/scan/recognize</code>, and inspect the raw
+            response plus the local score calculation.
+          </p>
+        </div>
+        <div class="scan-debug-hero-meta">
+          <span class="pill pill-muted">/scan</span>
+          <span class="pill pill-success">local score</span>
+          <span class="pill">OpenAI vision</span>
+        </div>
+      </header>
+
+      <section class="scan-debug-toolbar surface-card">
+        <label class="field scan-debug-model-field">
+          <span class="field-label">Model</span>
+          <select
+            id="scan-debug-model"
+            value="gpt-5.4"
+          >
+            <option value="gpt-5.4" selected>gpt-5.4</option>
+            <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+            <option value="gpt-5.4-nano">gpt-5.4-nano</option>
+            <option value="gpt-5.4-pro">gpt-5.4-pro</option>
+            <option value="gpt-5.2">gpt-5.2</option>
+            <option value="gpt-5.1">gpt-5.1</option>
+            <option value="gpt-5">gpt-5</option>
+            <option value="gpt-5-mini">gpt-5-mini</option>
+            <option value="gpt-5-nano">gpt-5-nano</option>
+            <option value="gpt-5-pro">gpt-5-pro</option>
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="gpt-4o-mini">gpt-4o-mini</option>
+            <option value="o4-mini">o4-mini</option>
+            <option value="o3">o3</option>
+          </select>
+        </label>
+        <div class="scan-debug-toolbar-actions">
+          <button id="scan-debug-pick" class="primary-action" type="button">Capture / upload image</button>
+          <button id="scan-debug-run" class="secondary-action" type="button" disabled>Recognize image</button>
+          <button id="scan-debug-clear" class="button-secondary" type="button">Clear</button>
+        </div>
+        <p class="scan-debug-help">
+          Phone: tap capture to open the camera. Mac: choose a file or drag one onto the preview area.
+        </p>
+        <input
+          id="scan-debug-file-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden"
+          aria-hidden="true"
+          tabindex="-1"
+        />
+      </section>
+
+      <section class="scan-debug-grid">
+        <article class="scan-debug-panel scan-debug-panel-preview">
+          <div class="scan-debug-panel-head">
+            <div>
+              <p class="eyebrow">Input</p>
+              <h2>Image preview</h2>
+            </div>
+            <span id="scan-debug-file-meta" class="pill pill-muted">No image selected</span>
+          </div>
+          <button id="scan-debug-dropzone" class="scan-debug-dropzone" type="button">
+            <img
+              id="scan-debug-preview-image"
+              class="scan-debug-preview-image hidden"
+              alt="Selected scan preview"
+            />
+            <div id="scan-debug-dropzone-copy" class="scan-debug-dropzone-copy">
+              <strong>Drop an image here</strong>
+              <span>or tap Capture / upload image</span>
+            </div>
+          </button>
+        </article>
+
+        <article class="scan-debug-panel scan-debug-panel-results">
+          <div class="scan-debug-panel-head">
+            <div>
+              <p class="eyebrow">Recognition</p>
+              <h2>Normalized result</h2>
+            </div>
+            <span id="scan-debug-status" class="pill pill-muted">Idle</span>
+          </div>
+
+          <div class="scan-debug-stats">
+            <div class="scan-debug-stat">
+              <span>Score</span>
+              <strong id="scan-debug-score">0</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>Confidence</span>
+              <strong id="scan-debug-confidence">0%</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>Tokens</span>
+              <strong id="scan-debug-token-count">0</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>API tokens</span>
+              <strong id="scan-debug-usage-total">0</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>Upload size</span>
+              <strong id="scan-debug-upload-size">0 KB</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>Latency</span>
+              <strong id="scan-debug-latency">0 ms</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>Monthly used</span>
+              <strong id="scan-debug-month-used">0</strong>
+            </div>
+            <div class="scan-debug-stat">
+              <span>Remaining</span>
+              <strong id="scan-debug-month-remaining">Unlimited</strong>
+            </div>
+          </div>
+
+          <div class="scan-debug-token-list" id="scan-debug-token-list" aria-label="Detected tokens"></div>
+
+          <div class="scan-debug-breakdown">
+            <div>
+              <span>Numbers</span>
+              <strong id="scan-debug-number-total">0</strong>
+            </div>
+            <div>
+              <span>Modifiers</span>
+              <strong id="scan-debug-modifier-total">0</strong>
+            </div>
+            <div>
+              <span>Flip 7 bonus</span>
+              <strong id="scan-debug-bonus">0</strong>
+            </div>
+            <div>
+              <span>Multiplier</span>
+              <strong id="scan-debug-multiplier">Off</strong>
+            </div>
+          </div>
+
+          <div class="scan-debug-estimates">
+            <div class="scan-debug-stat scan-debug-estimate">
+              <span>Per image</span>
+              <strong id="scan-debug-estimate-image">—</strong>
+              <small id="scan-debug-estimate-image-cost">—</small>
+            </div>
+            <div class="scan-debug-stat scan-debug-estimate">
+              <span>100 images</span>
+              <strong id="scan-debug-estimate-100">—</strong>
+              <small id="scan-debug-estimate-100-cost">—</small>
+            </div>
+            <div class="scan-debug-stat scan-debug-estimate">
+              <span>200 images</span>
+              <strong id="scan-debug-estimate-200">—</strong>
+              <small id="scan-debug-estimate-200-cost">—</small>
+            </div>
+            <div class="scan-debug-stat scan-debug-estimate">
+              <span>Monthly cap impact</span>
+              <strong id="scan-debug-estimate-month">—</strong>
+              <small id="scan-debug-estimate-month-cost">—</small>
+            </div>
+          </div>
+
+          <div id="scan-debug-warnings" class="scan-debug-warnings hidden"></div>
+        </article>
+
+        <article class="scan-debug-panel scan-debug-panel-wide">
+          <div class="scan-debug-panel-head">
+            <div>
+              <p class="eyebrow">Live console</p>
+              <h2>Events</h2>
+            </div>
+            <button id="scan-debug-copy-raw" class="button-secondary" type="button" disabled>Copy raw</button>
+          </div>
+          <div id="scan-debug-console" class="scan-debug-console" aria-live="polite"></div>
+        </article>
+
+        <article class="scan-debug-panel scan-debug-panel-wide">
+          <div class="scan-debug-panel-head">
+            <div>
+              <p class="eyebrow">OpenAI response</p>
+              <h2>Raw JSON</h2>
+            </div>
+          </div>
+          <pre id="scan-debug-raw" class="scan-debug-json">{}</pre>
+        </article>
+      </section>
+    </main>
+
+    <script src="/scan-image-utils.js" defer></script>
+    <script src="/scan-debug.js" defer></script>
+  </body>
+</html>

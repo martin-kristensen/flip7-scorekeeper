@@ -9,6 +9,7 @@ import {
   isGameFinished,
   PostgresStore
 } from "./store";
+import { recognizeScanImage } from "./scan-recognition";
 import { Game, GameMode, Player, Round, RoundScore, ScoreInputMode } from "./types";
 
 const app = express();
@@ -42,6 +43,16 @@ const indexTemplate = fs
   .readFileSync(path.join(publicDirectory, "index.html"), "utf8")
   .replace("<!-- CLARITY_SNIPPET -->", claritySnippet);
 const friendlyDatabaseError = "The scoreboard is temporarily offline. Please try again in a moment.";
+const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
+const defaultOpenAiModel =
+  process.env.OPENAI_MODEL?.trim() || process.env.OPENAI_SCAN_MODEL?.trim() || "gpt-5.4";
+const monthlyScanTokenLimitRaw = Number(process.env.OPENAI_MONTHLY_TOKEN_LIMIT ?? 0);
+const monthlyScanTokenLimit =
+  Number.isFinite(monthlyScanTokenLimitRaw) && monthlyScanTokenLimitRaw > 0
+    ? Math.floor(monthlyScanTokenLimitRaw)
+    : 0;
+const scanUsageTableName = "scan_usage_events";
+const scanUsageAdvisoryLockClass = 714_927;
 
 if (!databaseUrl) {
   throw new Error("Set DATABASE_URL to a Postgres connection string before starting the app.");
@@ -49,6 +60,7 @@ if (!databaseUrl) {
 
 const pool = new Pool({ connectionString: databaseUrl });
 const store = new PostgresStore(pool);
+let scanUsageInitialization: Promise<void> | null = null;
 const sessionCookieName = "flip7_session_id";
 const sessionCookieOptions = {
   httpOnly: true,
@@ -81,7 +93,7 @@ const parseCookies = (cookieHeader: string | undefined) => {
   }, {});
 };
 
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
 app.use((request, response, next) => {
   const cookies = parseCookies(request.headers.cookie);
   const existingSessionId = cookies[sessionCookieName];
@@ -97,6 +109,15 @@ app.use((request, response, next) => {
 
 app.get(["/", "/index.html"], (_request, response) => {
   response.type("html").send(indexTemplate);
+});
+
+app.get("/scan", (_request, response) => {
+  const scanTemplate = fs
+    .readFileSync(path.join(publicDirectory, "scan.html"), "utf8")
+    .replace("<!-- CLARITY_SNIPPET -->", claritySnippet);
+
+  response.set("Cache-Control", "no-store");
+  response.type("html").send(scanTemplate);
 });
 
 app.use(express.static(publicDirectory));
@@ -162,6 +183,150 @@ const updateDatabase = (
   request: express.Request,
   updater: Parameters<PostgresStore["update"]>[1]
 ) => store.update(getSessionId(request), updater);
+
+const ensureScanUsageInitialized = () => {
+  if (!scanUsageInitialization) {
+    scanUsageInitialization = pool.query(`
+      CREATE TABLE IF NOT EXISTS ${scanUsageTableName} (
+        id bigserial PRIMARY KEY,
+        created_at timestamptz NOT NULL DEFAULT NOW(),
+        month_start date NOT NULL,
+        session_id text,
+        model text NOT NULL,
+        input_tokens integer NOT NULL DEFAULT 0,
+        output_tokens integer NOT NULL DEFAULT 0,
+        total_tokens integer NOT NULL DEFAULT 0
+      );
+
+      CREATE INDEX IF NOT EXISTS ${scanUsageTableName}_month_start_idx
+        ON ${scanUsageTableName} (month_start, created_at DESC);
+    `).then(() => undefined);
+  }
+
+  return scanUsageInitialization;
+};
+
+const getUtcMonthWindow = (date = new Date()) => {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const monthStart = new Date(Date.UTC(year, month, 1));
+  const nextMonthStart = new Date(Date.UTC(year, month + 1, 1));
+  const monthKey = year * 100 + (month + 1);
+
+  return {
+    monthKey,
+    monthStartIso: monthStart.toISOString(),
+    nextMonthStartIso: nextMonthStart.toISOString(),
+    monthStartDate: monthStart.toISOString().slice(0, 10)
+  };
+};
+
+const normalizeTokenUsage = (usage: unknown) => {
+  if (!usage || typeof usage !== "object") {
+    return {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    };
+  }
+
+  const candidate = usage as {
+    inputTokens?: unknown;
+    outputTokens?: unknown;
+    totalTokens?: unknown;
+    input_tokens?: unknown;
+    output_tokens?: unknown;
+    total_tokens?: unknown;
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+  };
+
+  const inputTokens = Number(candidate.inputTokens ?? candidate.input_tokens ?? candidate.prompt_tokens ?? 0);
+  const outputTokens = Number(candidate.outputTokens ?? candidate.output_tokens ?? candidate.completion_tokens ?? 0);
+  const totalTokens = Number(candidate.totalTokens ?? candidate.total_tokens ?? inputTokens + outputTokens);
+
+  return {
+    inputTokens: Number.isFinite(inputTokens) && inputTokens >= 0 ? Math.floor(inputTokens) : 0,
+    outputTokens: Number.isFinite(outputTokens) && outputTokens >= 0 ? Math.floor(outputTokens) : 0,
+    totalTokens: Number.isFinite(totalTokens) && totalTokens >= 0 ? Math.floor(totalTokens) : 0
+  };
+};
+
+const readMonthlyScanUsage = async (client: import("pg").PoolClient, monthStartIso: string, nextMonthStartIso: string) => {
+  const result = await client.query<{
+    total_input_tokens: string | number | null;
+    total_output_tokens: string | number | null;
+    total_tokens: string | number | null;
+    request_count: string | number | null;
+  }>(
+    `SELECT
+       COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
+       COALESCE(SUM(output_tokens), 0) AS total_output_tokens,
+       COALESCE(SUM(total_tokens), 0) AS total_tokens,
+       COUNT(*) AS request_count
+     FROM ${scanUsageTableName}
+     WHERE created_at >= $1::timestamptz
+       AND created_at < $2::timestamptz`,
+    [monthStartIso, nextMonthStartIso]
+  );
+
+  const row = result.rows[0] ?? {};
+
+  return {
+    inputTokens: Number(row.total_input_tokens ?? 0) || 0,
+    outputTokens: Number(row.total_output_tokens ?? 0) || 0,
+    totalTokens: Number(row.total_tokens ?? 0) || 0,
+    requestCount: Number(row.request_count ?? 0) || 0
+  };
+};
+
+const buildMonthlyScanBudget = (
+  monthStartDate: string,
+  currentUsage: Awaited<ReturnType<typeof readMonthlyScanUsage>>,
+  limit: number
+) => {
+  if (limit <= 0) {
+    return null;
+  }
+
+  return {
+    monthStart: monthStartDate,
+    limit,
+    used: currentUsage.totalTokens,
+    remaining: Math.max(0, limit - currentUsage.totalTokens)
+  };
+};
+
+const recordMonthlyScanUsage = async (
+  client: import("pg").PoolClient,
+  entry: {
+    monthStartDate: string;
+    sessionId: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }
+) => {
+  await client.query(
+    `INSERT INTO ${scanUsageTableName} (
+      month_start,
+      session_id,
+      model,
+      input_tokens,
+      output_tokens,
+      total_tokens
+    ) VALUES ($1::date, $2, $3, $4, $5, $6)`,
+    [
+      entry.monthStartDate,
+      entry.sessionId,
+      entry.model,
+      entry.inputTokens,
+      entry.outputTokens,
+      entry.totalTokens
+    ]
+  );
+};
 
 const createGame = (
   title: string,
@@ -568,6 +733,105 @@ app.post("/api/game/:id/resume", async (request, response) => {
   }
 
   response.status(200).json({ game: toGameResponse(database.currentGame), history: decorateGames(database.gameHistory) });
+});
+
+app.post("/api/scan/recognize", async (request, response) => {
+  const imageDataUrl = String(request.body?.imageDataUrl ?? "");
+  const includeRawResponse = Boolean(request.body?.includeRawResponse);
+  const requestedModel = String(request.body?.model ?? "").trim();
+  const model = requestedModel || defaultOpenAiModel;
+  const sessionId = getSessionId(request);
+
+  if (!imageDataUrl.startsWith("data:image/")) {
+    response.status(400).json({ error: "A valid image is required." });
+    return;
+  }
+
+  if (!openAiApiKey) {
+    response.status(500).json({ error: "OPENAI_API_KEY is not configured." });
+    return;
+  }
+
+  await ensureScanUsageInitialized();
+
+  const monthWindow = getUtcMonthWindow();
+  const usageClient = await pool.connect();
+
+  try {
+    await usageClient.query("BEGIN");
+    await usageClient.query("SELECT pg_advisory_xact_lock($1, $2)", [
+      scanUsageAdvisoryLockClass,
+      monthWindow.monthKey
+    ]);
+
+    const currentUsage = await readMonthlyScanUsage(
+      usageClient,
+      monthWindow.monthStartIso,
+      monthWindow.nextMonthStartIso
+    );
+
+    if (monthlyScanTokenLimit > 0 && currentUsage.totalTokens >= monthlyScanTokenLimit) {
+      await usageClient.query("ROLLBACK");
+      const budget = buildMonthlyScanBudget(monthWindow.monthStartDate, currentUsage, monthlyScanTokenLimit);
+      response.status(429).json({
+        error: `OpenAI scan usage has reached the monthly limit of ${monthlyScanTokenLimit} tokens.`,
+        usage: {
+          ...currentUsage,
+          limit: monthlyScanTokenLimit,
+          remaining: 0,
+          monthStart: monthWindow.monthStartDate
+        },
+        budget
+      });
+      return;
+    }
+
+    const result = await recognizeScanImage({
+      apiKey: openAiApiKey,
+      imageDataUrl,
+      model,
+      includeRawResponse
+    });
+
+    const usage = normalizeTokenUsage(result.usage);
+    await recordMonthlyScanUsage(usageClient, {
+      monthStartDate: monthWindow.monthStartDate,
+      sessionId,
+      model,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens
+    });
+    await usageClient.query("COMMIT");
+
+    const nextUsage = {
+      ...currentUsage,
+      inputTokens: currentUsage.inputTokens + usage.inputTokens,
+      outputTokens: currentUsage.outputTokens + usage.outputTokens,
+      totalTokens: currentUsage.totalTokens + usage.totalTokens
+    };
+
+    response.json({
+      tokens: result.tokens,
+      confidence: result.confidence,
+      warnings: result.warnings,
+      model,
+      usage: usage.totalTokens > 0 ? usage : null,
+      budget: buildMonthlyScanBudget(monthWindow.monthStartDate, nextUsage, monthlyScanTokenLimit),
+      ...(includeRawResponse ? { rawResponse: result.rawResponse ?? null } : {})
+    });
+  } catch (error) {
+    try {
+      await usageClient.query("ROLLBACK");
+    } catch {
+      // Ignore rollback failures.
+    }
+    response.status(502).json({
+      error: error instanceof Error ? error.message : "OpenAI scan recognition failed."
+    });
+  } finally {
+    usageClient.release();
+  }
 });
 
 app.post("/api/rounds", async (request, response) => {
