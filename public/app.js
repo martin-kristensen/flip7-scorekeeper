@@ -1,5 +1,5 @@
 const STORAGE_KEY = "flip7-preferences";
-const APP_VERSION = "2026.16.02";
+const APP_VERSION = "2026.17.02";
 const DEFAULT_SETTINGS = {
   theme: "system",
   language: "en",
@@ -44,6 +44,7 @@ const FLIP7_CARD_ART_URLS = {
   "modifier:+10": "/assets/cards/bonus_plus_10.svg",
   "modifier:x2": "/assets/cards/bonus_times_2.svg"
 };
+const NEW_GAME_TITLE_DESCRIPTORS_COUNT = 20;
 const FAKE_SCAN_HANDS = [
   [
     "number:0",
@@ -162,6 +163,7 @@ const state = {
   draft: {
     newGame: {
       title: "",
+      titleSuggestionIndex: 0,
       gameMode: "classic",
       winningScore: String(initialSettings.defaultWinningScore),
       scoreInputMode: getNewGameScoreInputMode("classic", initialSettings.defaultScoreInputMode),
@@ -172,6 +174,7 @@ const state = {
     statsGameId: "",
     currentGameOrder: "entered",
     currentGamePlayerInput: "",
+    currentGameTitleInput: null,
     currentGameRenamingPlayerId: null,
     currentGameRenameInput: "",
     currentGameFocusTarget: null,
@@ -253,6 +256,39 @@ function saveSettings() {
 
 function normalizeLanguage(value) {
   return SUPPORTED_LANGUAGES.includes(value) ? value : "en";
+}
+
+function capitalizeFirstLetter(value, language = state.settings.language) {
+  const text = String(value || "");
+  if (!text) {
+    return "";
+  }
+
+  return text.charAt(0).toLocaleUpperCase(language) + text.slice(1);
+}
+
+function getTranslationList(path, language = state.settings.language) {
+  const translated = globalThis.i18next?.t(path, {
+    lng: language,
+    returnObjects: true
+  });
+
+  if (Array.isArray(translated)) {
+    return translated.map((value) => String(value || "").trim()).filter(Boolean);
+  }
+
+  return [];
+}
+
+function buildSessionTitleSuggestion(language = state.settings.language, suggestionIndex = 0) {
+  const descriptors = getTranslationList("newGame.titleDescriptors", language);
+  const weekday = new Intl.DateTimeFormat(language, { weekday: "long" }).format(new Date());
+  const descriptor =
+    descriptors.length > 0
+      ? descriptors[Math.abs(Number(suggestionIndex) || 0) % descriptors.length]
+      : "";
+
+  return [capitalizeFirstLetter(weekday, language), descriptor].filter(Boolean).join(" ");
 }
 
 function loadSettings() {
@@ -1075,15 +1111,25 @@ function getFlip7CardSelectionStats(selection) {
   };
 }
 
-function createScanPlayerDraft(player) {
+function createScanPlayerDraft(player, seed = null) {
+  const rawSeedScore = typeof seed?.score === "string" ? seed.score.trim() : seed?.score;
+  const seedScore = Number(rawSeedScore);
+  const hasSeedScore =
+    typeof rawSeedScore === "number"
+      ? Number.isFinite(rawSeedScore)
+      : typeof rawSeedScore === "string" && rawSeedScore.length > 0 && Number.isFinite(seedScore);
+  const seedTokens = Array.isArray(seed?.tokens)
+    ? seed.tokens.map(normalizeCardToken).filter((token) => token !== null)
+    : [];
+  const hasSeedTokens = seedTokens.length > 0;
   return {
     playerId: player.id,
-    status: "idle",
-    tokens: [],
-    score: null,
+    status: hasSeedTokens ? "ready" : hasSeedScore ? "manual" : "idle",
+    tokens: seedTokens,
+    score: hasSeedTokens ? getFlip7CardSelectionStats(seedTokens).total : hasSeedScore ? seedScore : null,
     confidence: null,
     note: "",
-    manualValue: "",
+    manualValue: hasSeedScore ? String(seedScore) : "",
     imageDataUrl: null,
     imageMeta: null,
     timerIds: []
@@ -1415,6 +1461,8 @@ function startScanRound() {
   }
 
   cacheRoundDraft(game, "new");
+  const existingScores = state.draft.roundScores || {};
+  const existingSelections = state.draft.roundCardSelections || {};
   state.draft.scanRound = {
     active: true,
     gameId: game.id,
@@ -1428,7 +1476,15 @@ function startScanRound() {
     summaryMenuPlayerId: null,
     cameraStatus: "starting",
     playerOrder: players.map((player) => player.id),
-    players: Object.fromEntries(players.map((player) => [player.id, createScanPlayerDraft(player)]))
+    players: Object.fromEntries(
+      players.map((player) => [
+        player.id,
+        createScanPlayerDraft(player, {
+          score: existingScores[player.id],
+          tokens: existingSelections[player.id]
+        })
+      ])
+    )
   };
   render();
 }
@@ -1761,17 +1817,7 @@ function isScanRoundReadyToConfirm() {
   const entries = Object.values(state.draft.scanRound?.players || {});
   return (
     entries.length > 0 &&
-    entries.every((entry) => {
-      if (entry.status === "manual") {
-        return (
-          (Array.isArray(entry.tokens) && entry.tokens.length > 0) ||
-          (typeof entry.manualValue === "string" && entry.manualValue.trim().length > 0) ||
-          (typeof entry.score === "number" && Number.isFinite(entry.score))
-        );
-      }
-
-      return ["ready", "skipped"].includes(entry.status);
-    })
+    !entries.some((entry) => ["uploading", "processing"].includes(entry.status))
   );
 }
 
@@ -1787,19 +1833,25 @@ async function confirmScanRound() {
   const nextSelections = {};
   players.forEach((player) => {
     const entry = getScanEntry(player.id);
-    nextScores[player.id] = String(entry?.score ?? 0);
-    nextSelections[player.id] = Array.isArray(entry?.tokens) ? entry.tokens : [];
+    const selection = Array.isArray(entry?.tokens) ? entry.tokens : [];
+    const stats = getFlip7CardSelectionStats(selection);
+    const score =
+      typeof entry?.score === "number" && Number.isFinite(entry.score)
+        ? entry.score
+        : selection.length > 0
+          ? stats.total
+          : 0;
+    nextScores[player.id] = String(score);
+    nextSelections[player.id] = selection;
   });
 
   clearScanTimers();
   stopScanCamera();
   state.draft.roundScores = nextScores;
   state.draft.roundCardSelections = nextSelections;
-  state.draft.scoreInputMode = isClassicCardModeGame(game) ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
-  state.draft.cardPickerPlayerId = players[0]?.id || null;
   cacheRoundDraft(game, "new");
   state.draft.scanRound = null;
-  await saveRound();
+  render();
 }
 
 function getRoundCardSelections(game, roundKey = getRoundDraftKey()) {
@@ -3067,7 +3119,7 @@ function renderNewGameScreen() {
             type="text"
             inputmode="text"
             enterkeyhint="next"
-            placeholder="${escapeHtml(t("newGame.titlePlaceholder"))}"
+            placeholder="${escapeHtml(buildSessionTitleSuggestion(state.settings.language, state.draft.newGame.titleSuggestionIndex))}"
             value="${escapeHtml(draft.title)}"
           />
         </label>
@@ -3506,10 +3558,13 @@ function renderCurrentGameScreen() {
   const draftForSelectedRound =
     state.draft.roundDrafts[currentRoundKey] || createRoundDraftFromRound(game, selectedRound);
   const scoreInputMode = draftForSelectedRound.scoreInputMode || SCORE_INPUT_MODES.manual;
-  const cardModeAvailable = Boolean(canEditScores && isClassicCardModeGame(game));
+  const cardModeAvailable = Boolean(roundNavigator.isLive && !game.isFinished && isClassicCardModeGame(game));
   const cardModeEnabled = Boolean(cardModeAvailable && scoreInputMode === SCORE_INPUT_MODES.cards);
   const showLiveScorePreview = currentRoundKey === "new" && canEditScores;
   const currentCardPickerPlayerId = draftForSelectedRound.cardPickerPlayerId || null;
+  const currentGameTitleInput =
+    typeof state.draft.currentGameTitleInput === "string" ? state.draft.currentGameTitleInput : null;
+  const currentGameTitleValue = currentGameTitleInput !== null ? currentGameTitleInput : game.title;
   const cardPickerNavigator = getCardPickerNavigatorState(game);
   const liveScorePreviewState = showLiveScorePreview
     ? getCurrentGameLiveScorePreview(game, draftForSelectedRound.roundScores)
@@ -3546,6 +3601,7 @@ function renderCurrentGameScreen() {
     progress.winningRoundNumber || 0,
     game.rounds.length,
     game.updatedAt,
+    currentGameTitleValue,
     state.draft.currentGameRenamingPlayerId || "none",
     canManagePlayers ? "roster-live" : "roster-locked",
     scoreInputMode,
@@ -3855,6 +3911,22 @@ function renderCurrentGameScreen() {
     </label>
   `;
 
+  const titleHtml = () => `
+    <label class="field current-details-title">
+      <span class="field-label">${escapeHtml(t("newGame.titleLabel"))}</span>
+      <input
+        id="current-game-title"
+        name="current-game-title"
+        type="text"
+        inputmode="text"
+        enterkeyhint="done"
+        autocomplete="off"
+        value="${escapeHtml(currentGameTitleValue)}"
+      />
+      <div class="helper">${escapeHtml(t("current.titleHelp"))}</div>
+    </label>
+  `;
+
   const roundInputSettingsHtml = () =>
     cardModeAvailable
       ? `
@@ -4060,6 +4132,7 @@ function renderCurrentGameScreen() {
         <span class="current-details-caret" aria-hidden="true">⌄</span>
       </summary>
       <div class="stack current-details-body">
+        ${titleHtml()}
         ${statusBannerHtml()}
         ${winnerBannerHtml()}
         ${roundInputSettingsHtml()}
@@ -4791,8 +4864,10 @@ async function startSuddenDeathFromCelebration() {
 }
 
 function resetNewGameDraft() {
+  const nextSuggestionIndex = (state.draft.newGame?.titleSuggestionIndex ?? 0) + 1;
   state.draft.newGame = {
     title: "",
+    titleSuggestionIndex: nextSuggestionIndex % NEW_GAME_TITLE_DESCRIPTORS_COUNT,
     gameMode: "classic",
     winningScore: String(state.settings.defaultWinningScore),
     scoreInputMode: getNewGameScoreInputMode("classic", state.settings.defaultScoreInputMode),
@@ -4811,7 +4886,8 @@ function setNewGameMode(mode) {
 
 function seedNewGameFromPlayers(players, game) {
   state.draft.newGame = {
-    title: game?.title ? `${game.title} ${t("common.current")}` : "",
+    title: game?.title || "",
+    titleSuggestionIndex: state.draft.newGame?.titleSuggestionIndex ?? 0,
     gameMode: game?.gameMode || "classic",
     winningScore: String(game?.winningScore || state.settings.defaultWinningScore),
     scoreInputMode: getNewGameScoreInputMode(
@@ -4823,10 +4899,56 @@ function seedNewGameFromPlayers(players, game) {
   };
 }
 
+async function saveCurrentGameTitle(titleInput = state.draft.currentGameTitleInput ?? "") {
+  const game = state.data.currentGame;
+  if (!game) {
+    return;
+  }
+
+  const nextTitle = String(titleInput ?? "").trim() || game.title;
+  if (!nextTitle || nextTitle === game.title) {
+    state.draft.currentGameTitleInput = null;
+    return;
+  }
+
+  const snapshot = snapshotAppState();
+
+  try {
+    const timestamp = now();
+    const optimisticGame = {
+      ...game,
+      updatedAt: timestamp,
+      title: nextTitle
+    };
+
+    state.data.currentGame = optimisticGame;
+    state.draft.currentGameTitleInput = null;
+    render();
+
+    const payload = await api(`/api/game/${encodeURIComponent(game.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: nextTitle })
+    });
+
+    if (payload.game) {
+      state.data.currentGame = payload.game;
+      ensureRoundDraft(state.data.currentGame);
+    }
+
+    render();
+  } catch (error) {
+    restoreAppState(snapshot);
+    showToast(error.message, true);
+    render();
+  }
+}
+
 async function startGame() {
   clearFinishedRoundNoteAutosave();
   const players = [...state.draft.newGame.players];
-  const title = state.draft.newGame.title.trim();
+  const title =
+    state.draft.newGame.title.trim() ||
+    buildSessionTitleSuggestion(state.settings.language, state.draft.newGame.titleSuggestionIndex);
   const gameMode = state.draft.newGame.gameMode;
 
   if (players.length < 2) {
@@ -4852,6 +4974,7 @@ async function startGame() {
     state.data.currentGame = optimisticGame;
     resetNewGameDraft();
     state.draft.currentRoundKey = "new";
+    state.draft.currentGameTitleInput = null;
     state.draft.roundDrafts = {
       new: createBlankRoundDraft(state.data.currentGame, "new")
     };
@@ -4910,6 +5033,7 @@ async function playAgain() {
     state.data.currentGame = optimisticGame;
     state.draft.roundNote = "";
     state.draft.roundScores = {};
+    state.draft.currentGameTitleInput = null;
     state.draft.currentGameOrder = "entered";
     state.draft.currentGamePlayerInput = "";
     state.draft.currentRoundKey = "new";
@@ -5430,6 +5554,7 @@ async function resumeGame(gameId) {
     );
     state.data.currentGame = gameToResume;
     state.draft.currentGamePlayerInput = "";
+    state.draft.currentGameTitleInput = null;
     if (state.data.currentGame && !state.data.currentGame.isFinished) {
       resetLiveRoundDraft(state.data.currentGame);
     } else {
@@ -5478,6 +5603,7 @@ async function archiveCurrentGame({ force = false } = {}) {
     state.confirmArchiveOpen = false;
     state.data.history = appendCurrentGameToHistory(state.data.history, currentGame);
     state.data.currentGame = null;
+    state.draft.currentGameTitleInput = null;
     ensureRoundDraft(state.data.currentGame);
     state.route = "home";
     window.location.hash = "home";
@@ -5647,6 +5773,8 @@ function wireGlobalEvents() {
 
     if (target.id === "new-game-title") {
       state.draft.newGame.title = target.value;
+    } else if (target.id === "current-game-title") {
+      state.draft.currentGameTitleInput = target.value;
     } else if (target.id === "new-player-input") {
       state.draft.newGame.playerInput = target.value;
     } else if (target.id === "new-game-mode") {
@@ -5664,7 +5792,16 @@ function wireGlobalEvents() {
       const score = Number(value);
       if (entry) {
         entry.manualValue = value;
-        if (value.length && Number.isFinite(score)) {
+        if (!value.length) {
+          entry.score = null;
+          if (!Array.isArray(entry.tokens) || entry.tokens.length === 0) {
+            clearScanTimers({ players: { [playerId]: entry } });
+            entry.status = "idle";
+            entry.tokens = [];
+            entry.confidence = null;
+            entry.note = null;
+          }
+        } else if (Number.isFinite(score)) {
           clearScanTimers({ players: { [playerId]: entry } });
           entry.status = "manual";
           entry.score = score;
@@ -5736,6 +5873,11 @@ function wireGlobalEvents() {
       return;
     }
 
+    if (target.id === "current-game-title") {
+      void saveCurrentGameTitle(target.value);
+      return;
+    }
+
     if (target.matches("[data-scan-file-capture]") && target instanceof HTMLInputElement) {
       const file = target.files?.[0];
       target.value = "";
@@ -5758,6 +5900,11 @@ function wireGlobalEvents() {
 
     if (target.id === "round-note" && state.data.currentGame?.isFinished) {
       queueFinishedRoundNoteSave();
+      return;
+    }
+
+    if (target.id === "current-game-title") {
+      void saveCurrentGameTitle(target.value);
     }
   });
 
@@ -5783,6 +5930,13 @@ function wireGlobalEvents() {
     ) {
       event.preventDefault();
       await addCurrentGamePlayer();
+      return;
+    }
+
+    if (target instanceof HTMLInputElement && target.id === "current-game-title" && event.key === "Enter") {
+      event.preventDefault();
+      void saveCurrentGameTitle(target.value);
+      target.blur();
       return;
     }
 
@@ -5991,7 +6145,7 @@ function wireGlobalEvents() {
         }
         render();
       } else if (action === "set-score-input-mode" && actionTarget.dataset.mode) {
-        if (!canUseCardMode) {
+        if (!game || game.isFinished || !isClassicCardModeGame(game)) {
           return;
         }
 

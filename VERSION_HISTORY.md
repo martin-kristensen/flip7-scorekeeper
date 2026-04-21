@@ -2,6 +2,20 @@
 
 Version format: `YYYY.WW.VV`
 
+## 2026.17.02
+
+- Added localized session title suggestions based on weekday plus rotating descriptor words.
+- Added live editing for the current session title in game details.
+- Kept the session title stable across play again and locked it when the game is tucked away.
+
+## 2026.17.01
+
+- Added OpenAI-based card recognition for scan capture and kept scoring local in the app.
+- Added the `/scan` debug page with image upload, live token usage, latency, and model selection.
+- Added monthly token budget tracking for OpenAI scan usage.
+- Migrated app translations to i18next with English, Swedish, and Danish locale files.
+- Added scan summary editing improvements, including manual score entry and manual card selection.
+
 ## 2026.16.02
 
 - Added live player rename from game details.

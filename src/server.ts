@@ -707,6 +707,40 @@ app.post("/api/game/restart", async (request, response) => {
   response.status(201).json({ game: toGameResponse(database.currentGame), history: decorateGames(database.gameHistory) });
 });
 
+app.patch("/api/game/:id", async (request, response) => {
+  const gameId = String(request.params.id ?? "");
+  const title = String(request.body?.title ?? "").trim();
+
+  if (!title) {
+    response.status(400).json({ error: "Title is required." });
+    return;
+  }
+
+  const database = await updateDatabase(request, (current) => {
+    if (!current.currentGame || current.currentGame.id !== gameId) {
+      throw new Error("Current game not found.");
+    }
+
+    const timestamp = now();
+    const updatedGame: Game = {
+      ...current.currentGame,
+      updatedAt: timestamp,
+      title
+    };
+
+    return { ...current, currentGame: updatedGame };
+  }).catch((error: Error) => {
+    response.status(400).json({ error: error.message });
+    return null;
+  });
+
+  if (!database) {
+    return;
+  }
+
+  response.json({ game: toGameResponse(database.currentGame) });
+});
+
 app.post("/api/game/:id/resume", async (request, response) => {
   const gameId = String(request.params.id ?? "");
 
