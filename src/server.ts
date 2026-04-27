@@ -10,7 +10,7 @@ import {
   PostgresStore
 } from "./store";
 import { recognizeScanImage } from "./scan-recognition";
-import { Game, GameMode, Player, Round, RoundScore, ScoreInputMode } from "./types";
+import { BrutalRules, Flip7Award, Game, GameMode, Player, Round, RoundScore, ScoreInputMode } from "./types";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -129,6 +129,21 @@ const isGameMode = (value: unknown): value is GameMode =>
   value === "classic" || value === "vengeance" || value === "mixed";
 const normalizeScoreInputMode = (value: unknown): ScoreInputMode =>
   value === "cards" ? "cards" : "manual";
+const defaultBrutalRules: BrutalRules = {
+  allowNegativeRoundScore: false,
+  flip7BonusCanTargetOpponent: false
+};
+const normalizeBrutalRules = (value: unknown): BrutalRules => {
+  if (!value || typeof value !== "object") {
+    return { ...defaultBrutalRules };
+  }
+
+  const candidate = value as Partial<Record<keyof BrutalRules, unknown>>;
+  return {
+    allowNegativeRoundScore: candidate.allowNegativeRoundScore === true,
+    flip7BonusCanTargetOpponent: candidate.flip7BonusCanTargetOpponent === true
+  };
+};
 const normalizeCardSelections = (value: unknown) => {
   if (!value || typeof value !== "object") {
     return {};
@@ -143,6 +158,51 @@ const normalizeCardSelections = (value: unknown) => {
       return [[playerId, selection.filter((token): token is string => typeof token === "string" && token.length > 0)]];
     })
   );
+};
+const normalizeFlip7Awards = (value: unknown, validPlayerIds?: Set<string>): Flip7Award[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const awards = value
+    .map((award) => {
+      if (!award || typeof award !== "object") {
+        return null;
+      }
+
+      const candidate = award as Partial<Record<keyof Flip7Award, unknown>>;
+      if (typeof candidate.playerId !== "string" || candidate.playerId.length === 0) {
+        return null;
+      }
+
+      if (validPlayerIds && !validPlayerIds.has(candidate.playerId)) {
+        return null;
+      }
+
+      const type = candidate.type === "targetPenalty" ? "targetPenalty" : "selfBonus";
+      const targetPlayerId =
+        type === "targetPenalty" && typeof candidate.targetPlayerId === "string" && candidate.targetPlayerId.length > 0
+          ? candidate.targetPlayerId
+          : undefined;
+
+      if (type === "targetPenalty" && (!targetPlayerId || targetPlayerId === candidate.playerId)) {
+        return null;
+      }
+
+      if (validPlayerIds && targetPlayerId && !validPlayerIds.has(targetPlayerId)) {
+        return null;
+      }
+
+      return {
+        playerId: candidate.playerId,
+        type,
+        ...(targetPlayerId ? { targetPlayerId } : {}),
+        points: 15
+      };
+    })
+    .filter((award): award is Flip7Award => award !== null);
+
+  return awards.length ? awards : undefined;
 };
 const normalizeWinningScore = (value: unknown, fallback = 200) => {
   const parsed = Number(value);
@@ -331,9 +391,10 @@ const recordMonthlyScanUsage = async (
 const createGame = (
   title: string,
   playerNames: string[],
-  options?: { gameMode?: unknown; winningScore?: unknown; defaultScoreInputMode?: unknown }
+  options?: { gameMode?: unknown; winningScore?: unknown; defaultScoreInputMode?: unknown; brutalRules?: unknown }
 ): Game => {
   const timestamp = now();
+  const gameMode = isGameMode(options?.gameMode) ? options.gameMode : "classic";
   const players: Player[] = Array.from(new Set(playerNames.map((name) => name.trim()).filter(Boolean))).map(
     (name) => createPlayerRecord(name, timestamp)
   );
@@ -345,10 +406,11 @@ const createGame = (
   return {
     id: createId(),
     title: title.trim() || "Flip 7 Game",
-    gameMode: isGameMode(options?.gameMode) ? options.gameMode : "classic",
+    gameMode,
+    brutalRules: gameMode === "vengeance" ? normalizeBrutalRules(options?.brutalRules) : { ...defaultBrutalRules },
     winningScore: normalizeWinningScore(options?.winningScore, 200),
     defaultScoreInputMode:
-      isGameMode(options?.gameMode) && options?.gameMode === "classic"
+      gameMode === "classic" || gameMode === "vengeance"
         ? normalizeScoreInputMode(options?.defaultScoreInputMode)
         : "manual",
     createdAt: timestamp,
@@ -482,9 +544,10 @@ app.post("/api/game", async (request, response) => {
   const gameMode = request.body?.gameMode;
   const winningScore = request.body?.winningScore;
   const defaultScoreInputMode = request.body?.defaultScoreInputMode;
+  const brutalRules = request.body?.brutalRules;
 
   try {
-    const game = createGame(title, playerNames, { gameMode, winningScore, defaultScoreInputMode });
+    const game = createGame(title, playerNames, { gameMode, winningScore, defaultScoreInputMode, brutalRules });
     const database = await updateDatabase(request, (current) => ({
       currentGame: game,
       gameHistory: archiveCurrentGame(current.gameHistory, current.currentGame)
@@ -687,7 +750,8 @@ app.post("/api/game/restart", async (request, response) => {
       {
         gameMode: current.currentGame.gameMode,
         winningScore: current.currentGame.winningScore,
-        defaultScoreInputMode: current.currentGame.defaultScoreInputMode
+        defaultScoreInputMode: current.currentGame.defaultScoreInputMode,
+        brutalRules: current.currentGame.brutalRules
       }
     );
 
@@ -709,23 +773,26 @@ app.post("/api/game/restart", async (request, response) => {
 
 app.patch("/api/game/:id", async (request, response) => {
   const gameId = String(request.params.id ?? "");
-  const title = String(request.body?.title ?? "").trim();
-
-  if (!title) {
-    response.status(400).json({ error: "Title is required." });
-    return;
-  }
+  const title = typeof request.body?.title === "string" ? request.body.title.trim() : undefined;
+  const hasBrutalRules = Object.prototype.hasOwnProperty.call(request.body ?? {}, "brutalRules");
 
   const database = await updateDatabase(request, (current) => {
     if (!current.currentGame || current.currentGame.id !== gameId) {
       throw new Error("Current game not found.");
     }
 
+    if (title !== undefined && !title) {
+      throw new Error("Title is required.");
+    }
+
     const timestamp = now();
     const updatedGame: Game = {
       ...current.currentGame,
       updatedAt: timestamp,
-      title
+      ...(title !== undefined ? { title } : {}),
+      ...(hasBrutalRules && current.currentGame.gameMode === "vengeance"
+        ? { brutalRules: normalizeBrutalRules(request.body?.brutalRules) }
+        : {})
     };
 
     return { ...current, currentGame: updatedGame };
@@ -873,6 +940,7 @@ app.post("/api/rounds", async (request, response) => {
   const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
   const scoreInputMode = normalizeScoreInputMode(request.body?.scoreInputMode);
   const cardSelections = normalizeCardSelections(request.body?.cardSelections);
+  const incomingFlip7Awards = request.body?.flip7Awards;
   const defaultScoreInputMode = request.body?.defaultScoreInputMode;
 
   const database = await updateDatabase(request, (current) => {
@@ -886,6 +954,8 @@ app.post("/api/rounds", async (request, response) => {
 
     const activePlayers = getActivePlayers(current.currentGame);
     const scores = validateRoundScores(activePlayers, incomingScores);
+    const activePlayerIds = new Set(activePlayers.map((player) => player.id));
+    const flip7Awards = normalizeFlip7Awards(incomingFlip7Awards, activePlayerIds);
 
     const round: Round = {
       id: createId(),
@@ -893,13 +963,14 @@ app.post("/api/rounds", async (request, response) => {
       note,
       scoreInputMode,
       cardSelections,
+      flip7Awards,
       scores
     };
 
     const roundCreatedAt = round.createdAt;
     const eliminationTimestamp = new Date(Date.parse(roundCreatedAt) + 1).toISOString();
     const nextDefaultScoreInputMode =
-      current.currentGame.gameMode === "classic"
+      current.currentGame.gameMode === "classic" || current.currentGame.gameMode === "vengeance"
         ? normalizeScoreInputMode(defaultScoreInputMode ?? current.currentGame.defaultScoreInputMode)
         : current.currentGame.defaultScoreInputMode;
     const updatedGame: Game = {
@@ -1017,6 +1088,7 @@ app.patch("/api/rounds/:id", async (request, response) => {
   const incomingScores: unknown[] = Array.isArray(request.body?.scores) ? request.body.scores : [];
   const scoreInputMode = normalizeScoreInputMode(request.body?.scoreInputMode);
   const cardSelections = normalizeCardSelections(request.body?.cardSelections);
+  const incomingFlip7Awards = request.body?.flip7Awards;
 
   const database = await updateDatabase(request, (current) => {
     if (!current.currentGame) {
@@ -1032,6 +1104,8 @@ app.patch("/api/rounds/:id", async (request, response) => {
     const existingRound = current.currentGame.rounds[roundIndex];
     const playersForRound = getPlayersActiveAt(current.currentGame, existingRound.createdAt);
     const scores = validateRoundScores(playersForRound, incomingScores);
+    const playerIdsForRound = new Set(playersForRound.map((player) => player.id));
+    const flip7Awards = normalizeFlip7Awards(incomingFlip7Awards, playerIdsForRound);
 
     if (isGameFinished(current.currentGame)) {
       const progress = getGameProgress(current.currentGame);
@@ -1053,7 +1127,7 @@ app.patch("/api/rounds/:id", async (request, response) => {
     }
 
     const rounds = current.currentGame.rounds.map((round, index) =>
-      index === roundIndex ? { ...round, note, scoreInputMode, cardSelections, scores } : round
+      index === roundIndex ? { ...round, note, scoreInputMode, cardSelections, flip7Awards, scores } : round
     );
 
     const updatedGame: Game = {

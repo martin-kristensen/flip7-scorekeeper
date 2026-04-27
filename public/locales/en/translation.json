@@ -22,6 +22,7 @@
     "add": "Add",
     "continue": "Continue",
     "cancel": "Cancel",
+    "ok": "OK",
     "save": "Save",
     "delete": "Delete",
     "archive": "Archive",
@@ -42,6 +43,12 @@
     "classic": "Flip 7 Classic",
     "vengeance": "Flip 7: With a Vengeance",
     "mixed": "Mixed / Custom"
+  },
+  "brutal": {
+    "title": "Brutal Mode",
+    "help": "Optional Vengeance rules for a more cutthroat game.",
+    "allowNegativeRoundScore": "Round score can go below 0",
+    "flip7BonusCanTargetOpponent": "Flip 7 may take +15 or give -15"
   },
   "statuses": {
     "inProgress": "In progress",
@@ -89,7 +96,7 @@
       "high stakes"
     ],
     "modeLabel": "Deck / mode",
-    "inputModeHelp": "Flip 7 Classic can use cards. Other modes use manual entry.",
+    "inputModeHelp": "Flip 7 Classic and Vengeance can use cards. Mixed games use manual entry.",
     "winningScoreLabel": "Target score for this game",
     "playersLabel": "Players at the table",
     "playerPlaceholder": "Type a player name",
@@ -175,6 +182,11 @@
     "manualEditActive": "Manual edit active",
     "flip7Bonus": "Flip 7 bonus",
     "flip7Achieved": "Flip 7 achieved",
+    "flip7Award": "Flip 7 award",
+    "flip7AwardHint": "Choose how the 15 points should apply.",
+    "flip7Take15": "Take +15",
+    "flip7GiveMinus15": "Give -15",
+    "flip7ChooseTarget": "Choose player",
     "clearCards": "Clear hand",
     "previousPlayer": "Previous player",
     "nextPlayer": "Next player",
@@ -269,7 +281,8 @@
     "lead": "Set your defaults and keep the game moving.",
     "defaultWinningScore": "Default target score",
     "defaultInputMode": "Default input mode",
-    "inputModeHelp": "Flip 7 Classic uses this mode when a new game starts.",
+    "inputModeHelp": "This mode is used when a new game starts.",
+    "vengeanceBrutalHelp": "These rules are used as the default when you start a new Vengeance table.",
     "theme": "Theme",
     "language": "Language",
     "light": "Light",

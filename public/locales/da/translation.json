@@ -22,6 +22,7 @@
     "add": "Tilføj",
     "continue": "Fortsæt",
     "cancel": "Annuller",
+    "ok": "OK",
     "save": "Gem",
     "delete": "Slet",
     "archive": "Arkivér",
@@ -42,6 +43,12 @@
     "classic": "Flip 7 Classic",
     "vengeance": "Flip 7: With a Vengeance",
     "mixed": "Blandet / Egen"
+  },
+  "brutal": {
+    "title": "Brutal Mode",
+    "help": "Valgfri Vengeance-regler til et hårdere spil.",
+    "allowNegativeRoundScore": "Rundescore kan gå under 0",
+    "flip7BonusCanTargetOpponent": "Flip 7 kan tage +15 eller give -15"
   },
   "statuses": {
     "inProgress": "I gang",
@@ -89,7 +96,7 @@
       "aftenduel"
     ],
     "modeLabel": "Dæk / tilstand",
-    "inputModeHelp": "Flip 7 Classic kan bruge kort. Andre tilstande bruger manuel indtastning.",
+    "inputModeHelp": "Flip 7 Classic og Vengeance kan bruge kort. Blandede spil bruger manuel indtastning.",
     "winningScoreLabel": "Målscore for dette spil",
     "playersLabel": "Spillere ved bordet",
     "playerPlaceholder": "Skriv et spillernavn",
@@ -132,6 +139,11 @@
     "manualEditActive": "Manuel redigering aktiv",
     "flip7Bonus": "Flip 7-bonus",
     "flip7Achieved": "Flip 7 opnået",
+    "flip7Award": "Flip 7-valg",
+    "flip7AwardHint": "Vælg hvordan de 15 point skal bruges.",
+    "flip7Take15": "Tag +15",
+    "flip7GiveMinus15": "Giv -15",
+    "flip7ChooseTarget": "Vælg spiller",
     "clearCards": "Ryd hånd",
     "previousPlayer": "Forrige spiller",
     "nextPlayer": "Næste spiller",
@@ -269,7 +281,8 @@
     "lead": "Sæt dine standarder og hold spillet i gang.",
     "defaultWinningScore": "Standardmålscore",
     "defaultInputMode": "Standard indtastning",
-    "inputModeHelp": "Flip 7 Classic bruger denne tilstand, når et nyt spil starter.",
+    "inputModeHelp": "Denne tilstand bruges, når et nyt spil starter.",
+    "vengeanceBrutalHelp": "Disse regler bruges som standard, når du starter et nyt Vengeance-bord.",
     "theme": "Tema",
     "language": "Sprog",
     "light": "Lys",

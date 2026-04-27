@@ -11,13 +11,21 @@ export interface ScanRecognitionResult {
 }
 
 const allowedScanTokens = [
-  ...Array.from({ length: 13 }, (_, value) => `number:${value}`),
+  ...Array.from({ length: 14 }, (_, value) => `number:${value}`),
+  "special:lucky13",
+  "special:unlucky7",
   "modifier:+2",
   "modifier:+4",
   "modifier:+6",
   "modifier:+8",
   "modifier:+10",
-  "modifier:x2"
+  "modifier:x2",
+  "modifier:-2",
+  "modifier:-4",
+  "modifier:-6",
+  "modifier:-8",
+  "modifier:-10",
+  "modifier:/2"
 ] as const;
 
 const allowedTokenSet = new Set<string>(allowedScanTokens);
@@ -52,9 +60,14 @@ const scanRecognitionSchema = {
 const scanPrompt = [
   "You read Flip 7 card photos.",
   "Return only the visible cards in normalized token form.",
+  "Preserve duplicates. If two valid 13 cards are visible, return two tokens.",
   "Use these exact token formats:",
-  "- number:0 through number:12",
+  "- number:0 through number:13 for regular number cards, including the regular Thirteen.",
+  "- special:lucky13 for the Lucky 13 card that says you may have one other 13.",
+  "- special:unlucky7 for the Unlucky 7 card that says discard all other cards.",
   "- modifier:+2, modifier:+4, modifier:+6, modifier:+8, modifier:+10, modifier:x2",
+  "- modifier:-2, modifier:-4, modifier:-6, modifier:-8, modifier:-10, modifier:/2",
+  "Return number:0 for The Zero card.",
   "Do not calculate score.",
   "Do not invent cards that are not visible.",
   "If a card is unclear, omit it or keep confidence low.",
@@ -77,9 +90,17 @@ const normalizeToken = (value: unknown) => {
     return compact;
   }
 
-  if (/^(?:number:)?(?:0|1|2|3|4|5|6|7|8|9|10|11|12)$/.test(compact)) {
+  if (/^(?:number:)?(?:0|1|2|3|4|5|6|7|8|9|10|11|12|13)$/.test(compact)) {
     const number = compact.replace("number:", "");
     return `number:${Number(number)}`;
+  }
+
+  if (/^(?:special:)?(?:lucky13|lucky:13|luckythirteen)$/.test(compact)) {
+    return "special:lucky13";
+  }
+
+  if (/^(?:special:)?(?:unlucky7|unlucky:7|unluckyseven)$/.test(compact)) {
+    return "special:unlucky7";
   }
 
   if (/^(?:modifier:)?(?:\+?2|\+?4|\+?6|\+?8|\+?10)$/.test(compact)) {
@@ -87,8 +108,17 @@ const normalizeToken = (value: unknown) => {
     return `modifier:+${Number(number)}`;
   }
 
+  if (/^(?:modifier:)?(?:-2|-4|-6|-8|-10)$/.test(compact)) {
+    const number = compact.replace("modifier:", "");
+    return `modifier:${Number(number)}`;
+  }
+
   if (/^(?:modifier:)?(?:x2|2x|times2)$/.test(compact)) {
     return "modifier:x2";
+  }
+
+  if (/^(?:modifier:)?(?:\/2|÷2|divideby2|dividedby2|half)$/.test(compact)) {
+    return "modifier:/2";
   }
 
   return null;
@@ -100,15 +130,13 @@ const normalizeTokens = (value: unknown) => {
   }
 
   const tokens: string[] = [];
-  const seen = new Set<string>();
 
   for (const candidate of value) {
     const normalized = normalizeToken(candidate);
-    if (!normalized || seen.has(normalized)) {
+    if (!normalized) {
       continue;
     }
 
-    seen.add(normalized);
     tokens.push(normalized);
   }
 

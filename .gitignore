@@ -19,3 +19,5 @@ Desktop.ini
 .vscode/
 .idea/
 .vercel
+.playwright-mcp/
+vengeance-brutal-mobile.png

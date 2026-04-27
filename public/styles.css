@@ -865,6 +865,44 @@ textarea {
   text-align: right;
 }
 
+.score-row.is-card-mode .score-preview {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 0;
+  text-align: left;
+}
+
+.score-row.is-card-mode .score-preview-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.14rem;
+  width: 100%;
+  min-height: 2.7rem;
+}
+
+.score-row.is-card-mode .score-preview-cards .scan-token {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.25rem;
+  padding: 0.08rem 0.22rem;
+  border-radius: 7px;
+  font-size: 0.68rem;
+}
+
+.score-row.is-card-mode .score-preview-cards .score-preview-award-token-success {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--surface-border));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface-strong));
+}
+
+.score-row.is-card-mode .score-preview-cards .score-preview-award-token-danger {
+  border-color: color-mix(in srgb, var(--danger) 26%, var(--surface-border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-strong));
+}
+
 .score-row.has-live-score-preview .score-preview-total {
   min-height: 1.1em;
   font-size: 1rem;
@@ -1098,8 +1136,8 @@ textarea {
 }
 
 .score-row.is-card-mode {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 180px);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 9.25rem) 110px;
+  align-items: center;
 }
 
 .score-card-toggle {
@@ -1141,6 +1179,41 @@ textarea {
 .score-card-toggle.is-flip7 {
   background: color-mix(in srgb, var(--success) 10%, var(--surface-strong));
   border-color: color-mix(in srgb, var(--success) 28%, var(--surface-border));
+}
+
+.flip7-award-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.flip7-award-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.flip7-award-toggle {
+  grid-template-columns: 1fr 1fr;
+}
+
+.flip7-award-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.flip7-target-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.flip7-target-option {
+  min-height: 2.8rem;
+  border-radius: 14px;
+  text-align: left;
 }
 
 .score-card-picker-shell {
@@ -1288,6 +1361,20 @@ textarea {
 .score-card-picker-summary {
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.flip7-award-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--surface-border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--primary-soft) 26%, var(--surface-strong));
+}
+
+.flip7-award-inline .modal-actions {
+  margin-top: 0.35rem;
 }
 
 .score-card-clear {
@@ -2336,7 +2423,7 @@ textarea {
   }
 
   .score-row.is-card-mode {
-    grid-template-columns: minmax(0, 1fr) 180px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 7.9rem) 108px;
   }
 
   .scan-action-grid {
@@ -2379,7 +2466,7 @@ textarea {
   }
 
   .score-row.is-card-mode {
-    grid-template-columns: minmax(0, 1fr) 108px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 7rem) 108px;
   }
 
   .score-card-toggle {

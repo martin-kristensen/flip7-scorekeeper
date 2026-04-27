@@ -22,6 +22,7 @@
     "add": "Lägg till",
     "continue": "Fortsätt",
     "cancel": "Avbryt",
+    "ok": "OK",
     "save": "Spara",
     "delete": "Ta bort",
     "archive": "Arkivera",
@@ -42,6 +43,12 @@
     "classic": "Flip 7 Classic",
     "vengeance": "Flip 7: With a Vengeance",
     "mixed": "Blandat / Eget"
+  },
+  "brutal": {
+    "title": "Brutal Mode",
+    "help": "Valfria Vengeance-regler för ett tuffare spel.",
+    "allowNegativeRoundScore": "Omgångspoäng kan gå under 0",
+    "flip7BonusCanTargetOpponent": "Flip 7 kan ta +15 eller ge -15"
   },
   "statuses": {
     "inProgress": "Pågående",
@@ -89,7 +96,7 @@
       "kvällsduell"
     ],
     "modeLabel": "Läge / kortlek",
-    "inputModeHelp": "Flip 7 Classic kan använda kort. Andra lägen använder manuell inmatning.",
+    "inputModeHelp": "Flip 7 Classic och Vengeance kan använda kort. Blandade spel använder manuell inmatning.",
     "winningScoreLabel": "Målpoäng för detta spel",
     "playersLabel": "Spelare vid bordet",
     "playerPlaceholder": "Skriv en spelare",
@@ -132,6 +139,11 @@
     "manualEditActive": "Manuell redigering aktiv",
     "flip7Bonus": "Flip 7-bonus",
     "flip7Achieved": "Flip 7 uppnått",
+    "flip7Award": "Flip 7-val",
+    "flip7AwardHint": "Välj hur de 15 poängen ska användas.",
+    "flip7Take15": "Ta +15",
+    "flip7GiveMinus15": "Ge -15",
+    "flip7ChooseTarget": "Välj spelare",
     "clearCards": "Rensa hand",
     "previousPlayer": "Föregående spelare",
     "nextPlayer": "Nästa spelare",
@@ -269,7 +281,8 @@
     "lead": "Ställ in dina val och håll spelet i gång.",
     "defaultWinningScore": "Standardmål",
     "defaultInputMode": "Standard inmatningssätt",
-    "inputModeHelp": "Flip 7 Classic använder detta läge när ett nytt spel startas.",
+    "inputModeHelp": "Det här läget används när ett nytt spel startas.",
+    "vengeanceBrutalHelp": "De här reglerna används som standard när du startar ett nytt Vengeance-bord.",
     "theme": "Tema",
     "language": "Språk",
     "light": "Ljus",

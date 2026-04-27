@@ -4,8 +4,16 @@ const DEFAULT_SETTINGS = {
   theme: "system",
   language: "en",
   defaultWinningScore: 200,
-  defaultScoreInputMode: "manual",
+  defaultScoreInputMode: "cards",
+  defaultVengeanceBrutalRules: {
+    allowNegativeRoundScore: false,
+    flip7BonusCanTargetOpponent: false
+  },
   hiddenRecentGameIds: []
+};
+const DEFAULT_BRUTAL_RULES = {
+  allowNegativeRoundScore: false,
+  flip7BonusCanTargetOpponent: false
 };
 const SUPPORTED_LANGUAGES = ["en", "sv", "da"];
 
@@ -14,14 +22,27 @@ const SCORE_INPUT_MODES = {
   manual: "manual",
   cards: "cards"
 };
-const FLIP7_NUMBER_CARDS = Array.from({ length: 13 }, (_, index) => index);
-const FLIP7_MODIFIER_CARDS = [
+const CLASSIC_NUMBER_CARDS = Array.from({ length: 13 }, (_, index) => index);
+const VENGEANCE_NUMBER_CARDS = Array.from({ length: 14 }, (_, index) => index);
+const CLASSIC_MODIFIER_CARDS = [
   { token: "modifier:+2", label: "+2", value: 2 },
   { token: "modifier:+4", label: "+4", value: 4 },
   { token: "modifier:+6", label: "+6", value: 6 },
   { token: "modifier:+8", label: "+8", value: 8 },
   { token: "modifier:+10", label: "+10", value: 10 },
   { token: "modifier:x2", label: "x2", multiplier: 2 }
+];
+const VENGEANCE_MODIFIER_CARDS = [
+  { token: "modifier:-2", label: "-2", value: -2 },
+  { token: "modifier:-4", label: "-4", value: -4 },
+  { token: "modifier:-6", label: "-6", value: -6 },
+  { token: "modifier:-8", label: "-8", value: -8 },
+  { token: "modifier:-10", label: "-10", value: -10 },
+  { token: "modifier:/2", label: "÷2", divider: 2 }
+];
+const VENGEANCE_SPECIAL_CARDS = [
+  { token: "special:lucky13", label: "Lucky 13", value: 13 },
+  { token: "special:unlucky7", label: "Unlucky 7", value: 7 }
 ];
 const FLIP7_CARD_ART_URLS = {
   "number:0": "/assets/cards/number_0.svg",
@@ -37,12 +58,21 @@ const FLIP7_CARD_ART_URLS = {
   "number:10": "/assets/cards/number_10.svg",
   "number:11": "/assets/cards/number_11.svg",
   "number:12": "/assets/cards/number_12.svg",
+  "number:13": "/assets/cards/number_13.svg",
+  "special:lucky13": "/assets/cards/special_lucky_13.svg",
+  "special:unlucky7": "/assets/cards/special_unlucky_7.svg",
   "modifier:+2": "/assets/cards/bonus_plus_2.svg",
   "modifier:+4": "/assets/cards/bonus_plus_4.svg",
   "modifier:+6": "/assets/cards/bonus_plus_6.svg",
   "modifier:+8": "/assets/cards/bonus_plus_8.svg",
   "modifier:+10": "/assets/cards/bonus_plus_10.svg",
-  "modifier:x2": "/assets/cards/bonus_times_2.svg"
+  "modifier:x2": "/assets/cards/bonus_times_2.svg",
+  "modifier:-2": "/assets/cards/bonus_minus_2.svg",
+  "modifier:-4": "/assets/cards/bonus_minus_4.svg",
+  "modifier:-6": "/assets/cards/bonus_minus_6.svg",
+  "modifier:-8": "/assets/cards/bonus_minus_8.svg",
+  "modifier:-10": "/assets/cards/bonus_minus_10.svg",
+  "modifier:/2": "/assets/cards/bonus_divide_2.svg"
 };
 const NEW_GAME_TITLE_DESCRIPTORS_COUNT = 20;
 const FAKE_SCAN_HANDS = [
@@ -95,11 +125,63 @@ function normalizeScoreInputMode(value) {
 }
 
 function getNewGameScoreInputMode(gameMode, fallback = DEFAULT_SETTINGS.defaultScoreInputMode) {
-  if (gameMode !== "classic") {
+  if (gameMode !== "classic" && gameMode !== "vengeance") {
     return SCORE_INPUT_MODES.manual;
   }
 
   return normalizeScoreInputMode(fallback);
+}
+
+function normalizeBrutalRules(value) {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_BRUTAL_RULES };
+  }
+
+  return {
+    allowNegativeRoundScore: value.allowNegativeRoundScore === true,
+    flip7BonusCanTargetOpponent: value.flip7BonusCanTargetOpponent === true
+  };
+}
+
+function isVengeanceMode(gameOrMode) {
+  return (typeof gameOrMode === "string" ? gameOrMode : gameOrMode?.gameMode) === "vengeance";
+}
+
+function isCardInputModeGame(game) {
+  return Boolean(game && (game.gameMode === "classic" || game.gameMode === "vengeance"));
+}
+
+function getNumberCardsForGame(gameOrMode) {
+  return isVengeanceMode(gameOrMode) ? VENGEANCE_NUMBER_CARDS : CLASSIC_NUMBER_CARDS;
+}
+
+function getModifierCardsForGame(gameOrMode) {
+  return isVengeanceMode(gameOrMode) ? VENGEANCE_MODIFIER_CARDS : CLASSIC_MODIFIER_CARDS;
+}
+
+function getSpecialCardsForGame(gameOrMode) {
+  return isVengeanceMode(gameOrMode) ? VENGEANCE_SPECIAL_CARDS : [];
+}
+
+function getAllKnownCardTokens() {
+  return [
+    ...VENGEANCE_NUMBER_CARDS.map((value) => `number:${value}`),
+    ...CLASSIC_MODIFIER_CARDS.map((card) => card.token),
+    ...VENGEANCE_MODIFIER_CARDS.map((card) => card.token),
+    ...VENGEANCE_SPECIAL_CARDS.map((card) => card.token)
+  ];
+}
+
+function isNumberLikeCardToken(token) {
+  return token.startsWith("number:") || token === "special:lucky13" || token === "special:unlucky7";
+}
+
+function getAllowedCardTokensForGame(gameOrMode) {
+  return new Set([
+    ...getNumberCardsForGame(gameOrMode).map((value) => `number:${value}`),
+    ...getSpecialCardsForGame(gameOrMode).map((card) => card.token),
+    ...getModifierCardsForGame(gameOrMode).map((card) => card.token)
+  ]);
 }
 
 function getFlip7CardArtUrl(token) {
@@ -147,7 +229,8 @@ function preloadFlip7CardArt() {
 }
 
 
-const initialSettings = loadSettings();
+const loadedSettings = loadSettings();
+const initialSettings = migrateSettings(loadedSettings);
 
 const state = {
   route: getRouteFromHash(),
@@ -165,6 +248,7 @@ const state = {
       title: "",
       titleSuggestionIndex: 0,
       gameMode: "classic",
+      brutalRules: { ...DEFAULT_BRUTAL_RULES },
       winningScore: String(initialSettings.defaultWinningScore),
       scoreInputMode: getNewGameScoreInputMode("classic", initialSettings.defaultScoreInputMode),
       playerInput: "",
@@ -180,11 +264,13 @@ const state = {
     currentGameFocusTarget: null,
     scoreInputMode: initialSettings.defaultScoreInputMode,
     cardPickerPlayerId: null,
+    flip7AwardModalPlayerId: null,
     currentRoundKey: "new",
     liveRoundVersion: 0,
     roundNote: "",
     roundScores: {},
     roundCardSelections: {},
+    roundFlip7Awards: {},
     finishedRoundNoteSaveTimeoutId: null,
     roundDrafts: {
       new: {
@@ -192,7 +278,9 @@ const state = {
         roundScores: {},
         scoreInputMode: initialSettings.defaultScoreInputMode,
         cardPickerPlayerId: null,
-        roundCardSelections: {}
+        flip7AwardModalPlayerId: null,
+        roundCardSelections: {},
+        roundFlip7Awards: {}
       }
     },
     scanRound: null
@@ -224,6 +312,10 @@ const elements = {
   archiveConfirmMessage: document.querySelector("#archive-confirm-message"),
   archiveConfirmContinue: document.querySelector("#archive-confirm-continue"),
   archiveConfirmCancel: document.querySelector("#archive-confirm-cancel"),
+  flip7AwardModal: document.querySelector("#flip7-award-modal"),
+  flip7AwardTitle: document.querySelector("#flip7-award-title"),
+  flip7AwardMessage: document.querySelector("#flip7-award-message"),
+  flip7AwardBody: document.querySelector("#flip7-award-body"),
   systemBanner: document.querySelector("#system-banner"),
   celebration: document.querySelector("#celebration"),
   celebrationCanvas: document.querySelector("#celebration-canvas"),
@@ -242,6 +334,10 @@ const elements = {
     settings: document.querySelector("#screen-settings")
   }
 };
+
+if (JSON.stringify(initialSettings) !== JSON.stringify(loadedSettings)) {
+  saveSettings();
+}
 
 function getRouteFromHash() {
   const route = window.location.hash.replace("#", "").trim();
@@ -311,6 +407,7 @@ function loadSettings() {
           ? Number(parsed.defaultWinningScore)
           : DEFAULT_SETTINGS.defaultWinningScore,
       defaultScoreInputMode: normalizeScoreInputMode(parsed.defaultScoreInputMode),
+      defaultVengeanceBrutalRules: normalizeBrutalRules(parsed.defaultVengeanceBrutalRules),
       hiddenRecentGameIds: Array.isArray(parsed.hiddenRecentGameIds)
         ? parsed.hiddenRecentGameIds.filter((value) => typeof value === "string" && value.length > 0)
         : []
@@ -343,9 +440,23 @@ function getPreferredLanguage() {
 function getDefaultSettings(language = getPreferredLanguage()) {
   return {
     ...DEFAULT_SETTINGS,
+    defaultVengeanceBrutalRules: { ...DEFAULT_BRUTAL_RULES },
     hiddenRecentGameIds: [],
     language: normalizeLanguage(language)
   };
+}
+
+function migrateSettings(settings) {
+  const nextSettings = {
+    ...getDefaultSettings(settings?.language || getPreferredLanguage()),
+    ...(settings && typeof settings === "object" ? settings : {})
+  };
+  nextSettings.defaultScoreInputMode = SCORE_INPUT_MODES.cards;
+  nextSettings.defaultVengeanceBrutalRules = normalizeBrutalRules(nextSettings.defaultVengeanceBrutalRules);
+  nextSettings.hiddenRecentGameIds = Array.isArray(nextSettings.hiddenRecentGameIds)
+    ? nextSettings.hiddenRecentGameIds.filter((value) => typeof value === "string" && value.length > 0)
+    : [];
+  return nextSettings;
 }
 
 async function loadTranslationResource(language) {
@@ -406,6 +517,44 @@ function renderInputModeToggle({ value, action, allowCards = true, ariaLabel }) 
         ${escapeHtml(t("current.cardMode"))}
       </button>
     </div>
+  `;
+}
+
+function renderBrutalRulesControls(rules, { action, disabled = false } = {}) {
+  const normalized = normalizeBrutalRules(rules);
+  const controlAction = action || "toggle-brutal-rule";
+  const options = [
+    {
+      key: "allowNegativeRoundScore",
+      label: t("brutal.allowNegativeRoundScore")
+    },
+    {
+      key: "flip7BonusCanTargetOpponent",
+      label: t("brutal.flip7BonusCanTargetOpponent")
+    }
+  ];
+
+  return `
+    <fieldset class="settings-fieldset brutal-rules-fieldset">
+      <legend>${escapeHtml(t("brutal.title"))}</legend>
+      <p class="helper plain-copy">${escapeHtml(t("brutal.help"))}</p>
+      ${options
+        .map(
+          (option) => `
+            <label class="toggle-row">
+              <span>${escapeHtml(option.label)}</span>
+              <input
+                type="checkbox"
+                data-action="${escapeHtml(controlAction)}"
+                data-rule="${escapeHtml(option.key)}"
+                ${normalized[option.key] ? "checked" : ""}
+                ${disabled ? "disabled" : ""}
+              />
+            </label>
+          `
+        )
+        .join("")}
+    </fieldset>
   `;
 }
 
@@ -842,8 +991,10 @@ function updateCurrentGameLiveScorePreview() {
     const preview = previews.get(playerId);
     const previewTotal = row.querySelector("[data-live-score-preview-total]");
     const previewGap = row.querySelector("[data-live-score-preview-gap]");
+    const previewCards = row.querySelector("[data-live-score-preview-cards]");
+    const isCardPreviewMode = state.draft.scoreInputMode === SCORE_INPUT_MODES.cards;
 
-    if (!(previewTotal instanceof HTMLElement) || !(previewGap instanceof HTMLElement) || !preview) {
+    if (!preview || (!isCardPreviewMode && (!(previewTotal instanceof HTMLElement) || !(previewGap instanceof HTMLElement)))) {
       return;
     }
 
@@ -852,6 +1003,14 @@ function updateCurrentGameLiveScorePreview() {
     if (totalLine instanceof HTMLElement) {
       const displayedTotal = preview.hasValue ? preview.projectedTotal : preview.committedTotal;
       totalLine.textContent = getCurrentGameTotalLine(displayedTotal, game.winningScore);
+    }
+
+    if (isCardPreviewMode) {
+      if (previewCards instanceof HTMLElement) {
+        const selection = state.draft.roundCardSelections?.[playerId] || [];
+        previewCards.innerHTML = renderCardPreviewTokens(game, playerId, selection);
+      }
+      return;
     }
 
     if (preview.hasValue) {
@@ -889,26 +1048,37 @@ function syncCurrentGameCardPickerState(game, playerId = state.draft.cardPickerP
   }
 
   const selection = getRoundCardSelections(game)[effectivePlayerId] || [];
-  const stats = getFlip7CardSelectionStats(selection);
+  const stats = getFlip7CardSelectionStats(selection, game);
   const manualScoreValue = String(state.draft.roundScores[effectivePlayerId] ?? "").trim();
-  const manualEditActive = selection.length === 0 && manualScoreValue.length > 0;
+  const awardTokens = getFlip7AwardTokensForPlayer(game, effectivePlayerId);
+  const draftScoreValue = state.draft.roundScores?.[effectivePlayerId];
+  const numericDraftScore = Number(draftScoreValue);
+  const hasDraftScore =
+    draftScoreValue !== "" && draftScoreValue !== null && draftScoreValue !== undefined && Number.isFinite(numericDraftScore);
+  const manualEditActive =
+    selection.length === 0 &&
+    manualScoreValue.length > 0 &&
+    Number(manualScoreValue) !== 0 &&
+    awardTokens.length === 0;
 
   picker.classList.toggle("is-manual-edit", manualEditActive);
 
   const countEl = picker.querySelector("[data-card-picker-count]");
   if (countEl instanceof HTMLElement) {
+    const displayScore = manualEditActive ? Number(manualScoreValue || 0) : hasDraftScore ? numericDraftScore : stats.total;
     countEl.textContent = manualEditActive
       ? `${t("current.manualEditActive")} · ${formatNumber(Number(manualScoreValue || 0))} ${t("common.points")}`
-      : `${t("current.cardsSelected", { count: stats.numberCount })} · ${formatNumber(stats.total)} ${t("common.points")}`;
+      : `${t("current.cardsSelected", { count: stats.numberCount })} · ${formatNumber(displayScore)} ${t("common.points")}`;
   }
 
   const summaryEl = picker.querySelector("[data-card-picker-summary]");
   if (summaryEl instanceof HTMLElement) {
+    const displayScore = manualEditActive ? Number(manualScoreValue || 0) : hasDraftScore ? numericDraftScore : stats.total;
     summaryEl.textContent = manualEditActive
       ? `${formatNumber(Number(manualScoreValue || 0))} ${t("common.points")} • ${t("current.manualEditActive")}`
       : stats.flip7Bonus
-        ? `${formatNumber(stats.total)} ${t("common.points")} • ${t("current.flip7Achieved")}`
-        : `${formatNumber(stats.total)} ${t("common.points")}`;
+        ? `${formatNumber(displayScore)} ${t("common.points")} • ${t("current.flip7Achieved")}`
+        : `${formatNumber(displayScore)} ${t("common.points")}`;
   }
 
   const input = [...screen.querySelectorAll("input[data-player-id]")].find(
@@ -916,7 +1086,13 @@ function syncCurrentGameCardPickerState(game, playerId = state.draft.cardPickerP
   );
   if (input instanceof HTMLInputElement) {
     input.disabled = selection.length > 0;
-    input.value = selection.length > 0 ? String(stats.total) : manualScoreValue;
+    if (manualEditActive) {
+      input.value = manualScoreValue;
+    } else if (hasDraftScore) {
+      input.value = String(numericDraftScore);
+    } else {
+      input.value = selection.length > 0 ? String(stats.total) : manualScoreValue;
+    }
   }
 
   picker.querySelectorAll(".score-card-button[data-card-token]").forEach((button) => {
@@ -926,14 +1102,17 @@ function syncCurrentGameCardPickerState(game, playerId = state.draft.cardPickerP
 
     const token = button.dataset.cardToken || "";
     const isSelected = selection.includes(token);
-    const isNumberCard = token.startsWith("number:");
+    const isNumberCard = isNumberLikeCardToken(token);
 
     button.classList.toggle("is-selected", isSelected);
     button.setAttribute("aria-pressed", isSelected ? "true" : "false");
-    button.disabled = manualEditActive || (isNumberCard ? stats.numberCount === 7 && !isSelected : false);
+    button.disabled =
+      manualEditActive ||
+      (isNumberCard && token !== "special:unlucky7" ? stats.numberCount === 7 && !isSelected : false);
   });
 
   updateCurrentGameLiveScorePreview();
+  syncFlip7AwardModalState(game);
 }
 
 function getStatsScopeState() {
@@ -1032,11 +1211,11 @@ const cloneValue = (value) => {
 const now = () => new Date().toISOString();
 
 function isClassicCardModeGame(game) {
-  return Boolean(game && game.gameMode === "classic");
+  return isCardInputModeGame(game);
 }
 
 function getCardInputMode(game, roundKey = getRoundDraftKey()) {
-  if (!isClassicCardModeGame(game)) {
+  if (!isCardInputModeGame(game)) {
     return SCORE_INPUT_MODES.manual;
   }
 
@@ -1053,25 +1232,35 @@ function normalizeCardToken(token) {
     return null;
   }
 
-  if (FLIP7_NUMBER_CARDS.some((value) => token === `number:${value}`)) {
-    return token;
-  }
-
-  if (FLIP7_MODIFIER_CARDS.some((card) => card.token === token)) {
+  if (getAllKnownCardTokens().includes(token)) {
     return token;
   }
 
   return null;
 }
 
-function getFlip7CardSelectionStats(selection) {
-  const selectedCards = Array.isArray(selection) ? selection.filter((value) => typeof value === "string") : [];
+function getFlip7CardSelectionStats(selection, gameOrMode = state.data.currentGame) {
+  const vengeanceMode = isVengeanceMode(gameOrMode);
+  const brutalRules = normalizeBrutalRules(
+    typeof gameOrMode === "object" && gameOrMode ? gameOrMode.brutalRules : null
+  );
+  const allowedTokens = getAllowedCardTokensForGame(gameOrMode);
+  const selectedCards = Array.isArray(selection)
+    ? selection.filter((value) => typeof value === "string" && allowedTokens.has(value))
+    : [];
+  const scoringCards = vengeanceMode && selectedCards.includes("special:unlucky7")
+    ? selectedCards.filter((token) => token === "special:unlucky7")
+    : selectedCards;
   const numberValues = new Set();
   let numberTotal = 0;
   let modifierTotal = 0;
   let hasMultiplier = false;
+  let hasDivider = false;
+  let hasZero = false;
+  let hasLucky13 = false;
+  let hasUnlucky7 = false;
 
-  for (const token of selectedCards) {
+  for (const token of scoringCards) {
     if (token.startsWith("number:")) {
       const value = Number(token.slice("number:".length));
       if (!Number.isFinite(value) || numberValues.has(value)) {
@@ -1080,11 +1269,35 @@ function getFlip7CardSelectionStats(selection) {
 
       numberValues.add(value);
       numberTotal += value;
+      hasZero = hasZero || value === 0;
+      continue;
+    }
+
+    if (token === "special:lucky13") {
+      if (!numberValues.has("lucky13")) {
+        numberValues.add("lucky13");
+        numberTotal += 13;
+        hasLucky13 = true;
+      }
+      continue;
+    }
+
+    if (token === "special:unlucky7") {
+      if (!numberValues.has("unlucky7")) {
+        numberValues.add("unlucky7");
+        numberTotal += 7;
+        hasUnlucky7 = true;
+      }
       continue;
     }
 
     if (token === "modifier:x2") {
       hasMultiplier = true;
+      continue;
+    }
+
+    if (token === "modifier:/2") {
+      hasDivider = true;
       continue;
     }
 
@@ -1094,21 +1307,380 @@ function getFlip7CardSelectionStats(selection) {
         modifierTotal += value;
       }
     }
+
+    if (token.startsWith("modifier:-")) {
+      const value = Number(token.slice("modifier:".length));
+      if (Number.isFinite(value)) {
+        modifierTotal += value;
+      }
+    }
   }
 
   const flip7Bonus = numberValues.size === 7 ? FLIP7_BONUS_POINTS : 0;
-  const numberScore = hasMultiplier ? numberTotal * 2 : numberTotal;
-  const total = numberScore + modifierTotal + flip7Bonus;
+  let numberScore = numberTotal;
+  if (hasMultiplier) {
+    numberScore *= 2;
+  }
+  if (hasDivider) {
+    numberScore = Math.floor(numberScore / 2);
+  }
+  let total = numberScore + modifierTotal + flip7Bonus;
+  const zeroForcedScore = vengeanceMode && hasZero && !flip7Bonus;
+  if (zeroForcedScore) {
+    total = 0;
+  }
+  if (vengeanceMode && !brutalRules.allowNegativeRoundScore && total < 0) {
+    total = 0;
+  }
 
   return {
     selectedCards,
+    scoringCards,
     numberCount: numberValues.size,
     numberTotal,
     modifierTotal,
     hasMultiplier,
+    hasDivider,
+    hasLucky13,
+    hasUnlucky7,
+    hasZero,
+    zeroForcedScore,
     flip7Bonus,
     total
   };
+}
+
+function canUseFlip7AwardWorkflow(game) {
+  return Boolean(
+    game &&
+      game.gameMode === "vengeance" &&
+      normalizeBrutalRules(game.brutalRules).flip7BonusCanTargetOpponent
+  );
+}
+
+function isResolvedFlip7Award(game, playerId, award = state.draft.roundFlip7Awards?.[playerId]) {
+  if (state.draft.flip7AwardModalPlayerId === playerId) {
+    return false;
+  }
+
+  if (!award) {
+    return false;
+  }
+
+  if (award.type === "selfBonus") {
+    return true;
+  }
+
+  if (award.type !== "targetPenalty" || !award.targetPlayerId) {
+    return false;
+  }
+
+  if (!canUseFlip7AwardWorkflow(game)) {
+    return false;
+  }
+
+  return getFlip7AwardTargets(game, playerId).some((entry) => entry.id === award.targetPlayerId);
+}
+
+function getFlip7TargetBaseScore(game, selections, scores, playerId) {
+  const committedTotal = getGameProgress(game)?.scoreboard.find((entry) => entry.playerId === playerId)?.total;
+  const safeCommittedTotal = Number.isFinite(Number(committedTotal)) ? Number(committedTotal) : 0;
+  const selection = Array.isArray(selections?.[playerId]) ? selections[playerId] : [];
+  if (selection.length) {
+    return safeCommittedTotal + getFlip7CardSelectionStats(selection, game).total;
+  }
+
+  const rawScore = scores?.[playerId];
+  if (rawScore !== "" && rawScore !== null && rawScore !== undefined) {
+    const score = Number(rawScore);
+    if (Number.isFinite(score)) {
+      return safeCommittedTotal + score;
+    }
+  }
+
+  return safeCommittedTotal;
+}
+
+function isFlip7AwardTargetEligible(game, selections, scores, sourcePlayerId, targetPlayerId) {
+  if (!game || !sourcePlayerId || !targetPlayerId || sourcePlayerId === targetPlayerId) {
+    return false;
+  }
+
+  if (normalizeBrutalRules(game.brutalRules).allowNegativeRoundScore) {
+    return true;
+  }
+
+  return getFlip7TargetBaseScore(game, selections, scores, targetPlayerId) >= FLIP7_BONUS_POINTS;
+}
+
+function getFlip7AwardTargets(game, playerId, selections = state.draft.roundCardSelections, scores = state.draft.roundScores) {
+  const baseScores = getCardRoundBaseScores(game, selections, scores, state.draft.roundFlip7Awards);
+  return getRoundPlayers(game).filter((target) =>
+    isFlip7AwardTargetEligible(game, selections, baseScores, playerId, target.id)
+  );
+}
+
+function normalizeFlip7Awards(
+  value,
+  game = state.data.currentGame,
+  selections = state.draft.roundCardSelections,
+  scores = state.draft.roundScores
+) {
+  const players = getRoundPlayers(game);
+  const playerIds = new Set(players.map((player) => player.id));
+  const awardWorkflowEnabled = canUseFlip7AwardWorkflow(game);
+  const source = Array.isArray(value)
+    ? Object.fromEntries(
+        value
+          .filter((award) => award && typeof award === "object")
+          .map((award) => [award.playerId, award])
+      )
+    : value && typeof value === "object"
+      ? value
+      : {};
+  const normalized = {};
+
+  for (const player of players) {
+    const selection = Array.isArray(selections?.[player.id]) ? selections[player.id] : [];
+    const stats = getFlip7CardSelectionStats(selection, game);
+    if (!stats.flip7Bonus) {
+      continue;
+    }
+
+    const award = source[player.id];
+    if (!award || typeof award !== "object") {
+      if (!awardWorkflowEnabled) {
+        normalized[player.id] = {
+          playerId: player.id,
+          type: "selfBonus",
+          points: FLIP7_BONUS_POINTS
+        };
+      }
+      continue;
+    }
+
+    if (award.type === "targetPenalty") {
+      const targetPlayerId = typeof award.targetPlayerId === "string" ? award.targetPlayerId : "";
+      if (targetPlayerId && targetPlayerId !== player.id && playerIds.has(targetPlayerId) && awardWorkflowEnabled) {
+        normalized[player.id] = {
+          playerId: player.id,
+          type: "targetPenalty",
+          targetPlayerId,
+          points: FLIP7_BONUS_POINTS
+        };
+      } else if (!awardWorkflowEnabled) {
+        normalized[player.id] = {
+          playerId: player.id,
+          type: "selfBonus",
+          points: FLIP7_BONUS_POINTS
+        };
+      }
+      continue;
+    }
+
+    if (award.type === "selfBonus") {
+      normalized[player.id] = {
+        playerId: player.id,
+        type: "selfBonus",
+        points: FLIP7_BONUS_POINTS
+      };
+    }
+  }
+
+  return normalized;
+}
+
+function getFlip7AwardList(game = state.data.currentGame) {
+  const baseScores = game ? getCardRoundBaseScores(game, state.draft.roundCardSelections, state.draft.roundScores, state.draft.roundFlip7Awards) : {};
+  const awards = normalizeFlip7Awards(game ? state.draft.roundFlip7Awards : {}, game, state.draft.roundCardSelections, baseScores);
+  return Object.values(awards);
+}
+
+function getRawFlip7AwardEntries(awards) {
+  if (Array.isArray(awards)) {
+    return awards.filter((award) => award && typeof award === "object");
+  }
+
+  if (awards && typeof awards === "object") {
+    return Object.values(awards).filter((award) => award && typeof award === "object");
+  }
+
+  return [];
+}
+
+function getCardRoundBaseScores(game, selections = state.draft.roundCardSelections, existingScores = state.draft.roundScores, awards = {}) {
+  const players = getRoundPlayers(game);
+  const scores = Object.fromEntries(players.map((player) => [player.id, ""]));
+
+  for (const player of players) {
+    const selection = Array.isArray(selections?.[player.id]) ? selections[player.id] : [];
+    if (selection.length) {
+      scores[player.id] = String(getFlip7CardSelectionStats(selection, game).total);
+      continue;
+    }
+
+    const existingScore = existingScores?.[player.id];
+    scores[player.id] = existingScore === null || existingScore === undefined ? "" : String(existingScore);
+  }
+
+  for (const award of getRawFlip7AwardEntries(awards)) {
+    if (state.draft.flip7AwardModalPlayerId && award.playerId === state.draft.flip7AwardModalPlayerId) {
+      continue;
+    }
+
+    if (award.type !== "targetPenalty" || typeof award.targetPlayerId !== "string") {
+      continue;
+    }
+
+    const targetSelection = Array.isArray(selections?.[award.targetPlayerId]) ? selections[award.targetPlayerId] : [];
+    if (targetSelection.length) {
+      continue;
+    }
+
+    const rawExistingScore = existingScores?.[award.targetPlayerId];
+    if (rawExistingScore === "" || rawExistingScore === null || rawExistingScore === undefined) {
+      continue;
+    }
+
+    const currentScore = Number(scores[award.targetPlayerId] || 0);
+    if (Number.isFinite(currentScore)) {
+      scores[award.targetPlayerId] = String(currentScore + FLIP7_BONUS_POINTS);
+    }
+  }
+
+  return scores;
+}
+
+function getFlip7AwardTokensForPlayer(game, playerId, awards = state.draft.roundFlip7Awards) {
+  if (state.draft.flip7AwardModalPlayerId === playerId) {
+    return [];
+  }
+
+  const baseScores = getCardRoundBaseScores(game, state.draft.roundCardSelections, state.draft.roundScores, awards);
+  const normalizedAwards = normalizeFlip7Awards(awards, game, state.draft.roundCardSelections, baseScores);
+  const sourceAward = normalizedAwards?.[playerId];
+  const tokens = [];
+  const pendingPlayerId = state.draft.flip7AwardModalPlayerId;
+  const targetAwards = Object.values(normalizedAwards).filter(
+    (award) =>
+      award.type === "targetPenalty" &&
+      award.targetPlayerId === playerId &&
+      (!pendingPlayerId || award.playerId !== pendingPlayerId)
+  );
+
+  for (const targetAward of targetAwards) {
+    tokens.push({ label: "-15", tone: "danger" });
+  }
+
+  if (sourceAward?.type === "selfBonus") {
+    tokens.push({ label: "+15", tone: "success" });
+  }
+
+  return tokens;
+}
+
+function calculateCardRoundScores(
+  game,
+  selections = state.draft.roundCardSelections,
+  awards = state.draft.roundFlip7Awards,
+  existingScores = state.draft.roundScores,
+  { reverseExistingAwardScores = true } = {}
+) {
+  const baseScores = getCardRoundBaseScores(game, selections, existingScores, reverseExistingAwardScores ? awards : {});
+  const scores = { ...baseScores };
+  const normalizedAwards = normalizeFlip7Awards(awards, game, selections, baseScores);
+  const pendingPlayerId = state.draft.flip7AwardModalPlayerId;
+
+  const allowNegativeRoundScore = normalizeBrutalRules(game?.brutalRules).allowNegativeRoundScore;
+  for (const award of Object.values(normalizedAwards)) {
+    if (pendingPlayerId && award.playerId === pendingPlayerId) {
+      continue;
+    }
+
+    if (award.type === "selfBonus") {
+      const sourceScore = Number(scores[award.playerId] || 0);
+      const nextSourceScore = sourceScore + FLIP7_BONUS_POINTS;
+      scores[award.playerId] = String(allowNegativeRoundScore ? nextSourceScore : Math.max(0, nextSourceScore));
+      continue;
+    }
+
+    if (award.type !== "targetPenalty" || !award.targetPlayerId) {
+      continue;
+    }
+
+    const targetScore = Number(scores[award.targetPlayerId] || 0);
+    const nextTargetScore = targetScore - FLIP7_BONUS_POINTS;
+    scores[award.targetPlayerId] = String(nextTargetScore);
+  }
+
+  return { scores, awards: normalizedAwards };
+}
+
+function syncCardRoundScores(game) {
+  if (!game || state.draft.scoreInputMode !== SCORE_INPUT_MODES.cards) {
+    return;
+  }
+
+  const result = calculateCardRoundScores(game);
+  state.draft.roundScores = result.scores;
+  state.draft.roundFlip7Awards = result.awards;
+}
+
+function syncFlip7AwardModalState(game) {
+  if (!game || state.draft.scoreInputMode !== SCORE_INPUT_MODES.cards) {
+    if (state.draft.flip7AwardModalPlayerId && !game?.players?.some((player) => player.id === state.draft.flip7AwardModalPlayerId)) {
+      state.draft.flip7AwardModalPlayerId = null;
+    }
+    return;
+  }
+
+  if (!canUseFlip7AwardWorkflow(game)) {
+    state.draft.flip7AwardModalPlayerId = null;
+    return;
+  }
+
+  const players = getRoundPlayers(game);
+  const activePlayerId = state.draft.cardPickerPlayerId || players[0]?.id || null;
+  if (!activePlayerId) {
+    state.draft.flip7AwardModalPlayerId = null;
+    return;
+  }
+
+  const selection = getRoundCardSelections(game)[activePlayerId] || [];
+  const stats = getFlip7CardSelectionStats(selection, game);
+  const existingAward = state.draft.roundFlip7Awards?.[activePlayerId];
+
+  if (stats.flip7Bonus && !isResolvedFlip7Award(game, activePlayerId, existingAward)) {
+    state.draft.flip7AwardModalPlayerId = activePlayerId;
+  } else if (state.draft.flip7AwardModalPlayerId === activePlayerId && !stats.flip7Bonus) {
+    state.draft.flip7AwardModalPlayerId = null;
+  } else if (state.draft.flip7AwardModalPlayerId && !players.some((player) => player.id === state.draft.flip7AwardModalPlayerId)) {
+    state.draft.flip7AwardModalPlayerId = null;
+  }
+}
+
+function requirePendingFlip7AwardChoice(game) {
+  if (!game || state.draft.scoreInputMode !== SCORE_INPUT_MODES.cards || !canUseFlip7AwardWorkflow(game)) {
+    return false;
+  }
+
+  for (const player of getRoundPlayers(game)) {
+    const selection = getRoundCardSelections(game)[player.id] || [];
+    const stats = getFlip7CardSelectionStats(selection, game);
+    if (!stats.flip7Bonus || isResolvedFlip7Award(game, player.id)) {
+      continue;
+    }
+
+    state.draft.cardPickerPlayerId = player.id;
+    state.draft.flip7AwardModalPlayerId = player.id;
+    if (state.data.currentGame) {
+      cacheRoundDraft(state.data.currentGame);
+    }
+    render();
+    return true;
+  }
+
+  return false;
 }
 
 function createScanPlayerDraft(player, seed = null) {
@@ -1411,7 +1983,7 @@ async function completeScanPlayerCapture(playerId, imageDataUrl = null, imageMet
     const tokens = Array.isArray(payload?.tokens)
       ? payload.tokens.filter((token) => typeof token === "string" && token.trim().length > 0).map((token) => token.trim())
       : [];
-    const stats = getFlip7CardSelectionStats(tokens);
+    const stats = getFlip7CardSelectionStats(tokens, game);
     const confidence = typeof payload?.confidence === "number" && Number.isFinite(payload.confidence)
       ? Math.max(0, Math.min(1, payload.confidence))
       : null;
@@ -1628,7 +2200,7 @@ function setScanManualCardSelection(playerId, selection) {
   }
 
   const normalized = Array.isArray(selection) ? selection.map(normalizeCardToken).filter((token) => token !== null) : [];
-  const stats = getFlip7CardSelectionStats(normalized);
+  const stats = getFlip7CardSelectionStats(normalized, state.data.currentGame);
   clearScanTimers({ players: { [playerId]: entry } });
   Object.assign(entry, {
     status: "manual",
@@ -1654,14 +2226,14 @@ function toggleScanManualCardSelection(playerId, token) {
   }
 
   const currentSelection = Array.isArray(entry.tokens) ? [...entry.tokens] : [];
-  const currentStats = getFlip7CardSelectionStats(currentSelection);
+  const currentStats = getFlip7CardSelectionStats(currentSelection, state.data.currentGame);
   const existingIndex = currentSelection.indexOf(normalizedToken);
 
   if (existingIndex >= 0) {
     currentSelection.splice(existingIndex, 1);
   } else {
-    const isNumberCard = normalizedToken.startsWith("number:");
-    if (isNumberCard && currentStats.numberCount === 7) {
+    const isNumberCard = isNumberLikeCardToken(normalizedToken);
+    if (isNumberCard && normalizedToken !== "special:unlucky7" && currentStats.numberCount === 7) {
       return currentStats;
     }
 
@@ -1678,8 +2250,10 @@ function clearScanManualCardSelection(playerId) {
 }
 
 function renderScanManualCardPicker(player, entry) {
+  const game = state.data.currentGame;
   const selection = Array.isArray(entry.tokens) ? entry.tokens : [];
-  const stats = getFlip7CardSelectionStats(selection);
+  const stats = getFlip7CardSelectionStats(selection, game);
+  const specialCards = getSpecialCardsForGame(game);
   const selectionLabel = stats.flip7Bonus
     ? t("current.flip7Achieved")
     : t("current.cardsSelected", { count: stats.selectedCards.length });
@@ -1693,7 +2267,7 @@ function renderScanManualCardPicker(player, entry) {
         <span class="pill ${stats.flip7Bonus ? "pill-success" : "pill-muted"}">${escapeHtml(selectionLabel)}</span>
       </div>
       <div class="score-card-picker-grid score-card-picker-grid-numbers">
-        ${FLIP7_NUMBER_CARDS.map((value) => {
+        ${getNumberCardsForGame(game).map((value) => {
           const token = `number:${value}`;
           const isSelected = selection.includes(token);
           return renderFlip7CardButton({
@@ -1706,9 +2280,30 @@ function renderScanManualCardPicker(player, entry) {
           });
         }).join("")}
       </div>
+      ${
+        specialCards.length
+          ? `
+            <div class="score-card-picker-divider"></div>
+            <div class="score-card-picker-grid score-card-picker-grid-modifiers">
+              ${specialCards.map((card) => {
+                const isSelected = selection.includes(card.token);
+                return renderFlip7CardButton({
+                  token: card.token,
+                  label: card.label,
+                  playerId: player.id,
+                  selected: isSelected,
+                  disabled: card.token !== "special:unlucky7" && isLocked && !isSelected,
+                  modifier: true,
+                  action: "scan-summary-toggle-card"
+                });
+              }).join("")}
+            </div>
+          `
+          : ""
+      }
       <div class="score-card-picker-divider"></div>
       <div class="score-card-picker-grid score-card-picker-grid-modifiers">
-        ${FLIP7_MODIFIER_CARDS.map((card) => {
+        ${getModifierCardsForGame(game).map((card) => {
           const isSelected = selection.includes(card.token);
           return renderFlip7CardButton({
             token: card.token,
@@ -1829,28 +2424,24 @@ async function confirmScanRound() {
   }
 
   const players = getScanRoundPlayers(game);
-  const nextScores = {};
   const nextSelections = {};
   players.forEach((player) => {
     const entry = getScanEntry(player.id);
     const selection = Array.isArray(entry?.tokens) ? entry.tokens : [];
-    const stats = getFlip7CardSelectionStats(selection);
-    const score =
-      typeof entry?.score === "number" && Number.isFinite(entry.score)
-        ? entry.score
-        : selection.length > 0
-          ? stats.total
-          : 0;
-    nextScores[player.id] = String(score);
     nextSelections[player.id] = selection;
   });
+  const nextCalculation = calculateCardRoundScores(game, nextSelections, {}, {});
 
   clearScanTimers();
   stopScanCamera();
-  state.draft.roundScores = nextScores;
+  state.draft.roundScores = nextCalculation.scores;
   state.draft.roundCardSelections = nextSelections;
+  state.draft.roundFlip7Awards = nextCalculation.awards;
   cacheRoundDraft(game, "new");
   state.draft.scanRound = null;
+  if (requirePendingFlip7AwardChoice(game)) {
+    return;
+  }
   render();
 }
 
@@ -1879,11 +2470,15 @@ function setRoundCardSelection(game, playerId, selection, roundKey = getRoundDra
     ...(state.draft.roundCardSelections || {}),
     [playerId]: normalized
   };
-  const stats = getFlip7CardSelectionStats(normalized);
-  state.draft.roundScores = {
-    ...state.draft.roundScores,
-    [playerId]: normalized.length > 0 ? String(stats.total) : ""
-  };
+  if (state.draft.scoreInputMode === SCORE_INPUT_MODES.cards && normalized.length === 0) {
+    state.draft.roundScores[playerId] = "";
+  }
+  syncCardRoundScores(game);
+  if (state.draft.scoreInputMode === SCORE_INPUT_MODES.cards && normalized.length === 0 && state.draft.roundScores[playerId] === "") {
+    state.draft.roundScores[playerId] = "0";
+  }
+  syncFlip7AwardModalState(game);
+  const stats = getFlip7CardSelectionStats(normalized, game);
 
   cacheRoundDraft(game, key);
   return stats;
@@ -1903,17 +2498,18 @@ function toggleRoundCardSelection(game, playerId, token, roundKey = getRoundDraf
   const selections = getRoundCardSelections(game, key);
   const currentSelection = Array.isArray(selections[playerId]) ? [...selections[playerId]] : [];
   const currentManualValue = String(state.draft.roundScores[playerId] ?? "").trim();
-  if (currentSelection.length === 0 && currentManualValue.length > 0) {
+  const awardTokens = getFlip7AwardTokensForPlayer(game, playerId);
+  if (currentSelection.length === 0 && currentManualValue.length > 0 && Number(currentManualValue) !== 0 && awardTokens.length === 0) {
     return null;
   }
-  const currentStats = getFlip7CardSelectionStats(currentSelection);
+  const currentStats = getFlip7CardSelectionStats(currentSelection, game);
   const existingIndex = currentSelection.indexOf(normalizedToken);
 
   if (existingIndex >= 0) {
     currentSelection.splice(existingIndex, 1);
   } else {
-    const isNumberCard = normalizedToken.startsWith("number:");
-    if (isNumberCard && currentStats.numberCount === 7) {
+    const isNumberCard = isNumberLikeCardToken(normalizedToken);
+    if (isNumberCard && normalizedToken !== "special:unlucky7" && currentStats.numberCount === 7) {
       return currentStats;
     }
 
@@ -1926,11 +2522,66 @@ function toggleRoundCardSelection(game, playerId, token, roundKey = getRoundDraf
 }
 
 function clearRoundCardSelection(game, playerId, roundKey = getRoundDraftKey()) {
+  if (state.draft.roundFlip7Awards?.[playerId]) {
+    const nextAwards = { ...(state.draft.roundFlip7Awards || {}) };
+    delete nextAwards[playerId];
+    state.draft.roundFlip7Awards = nextAwards;
+  }
+
   return setRoundCardSelection(game, playerId, [], roundKey);
 }
 
-function renderFlip7CardPicker(player, selection) {
-  const stats = getFlip7CardSelectionStats(selection);
+function setRoundFlip7Award(game, playerId, award) {
+  if (!game || !playerId) {
+    return;
+  }
+
+  const selections = getRoundCardSelections(game);
+  const stats = getFlip7CardSelectionStats(selections[playerId] || [], game);
+  if (!stats.flip7Bonus) {
+    return;
+  }
+
+  const nextAwards = { ...(state.draft.roundFlip7Awards || {}) };
+  const baseScores = getCardRoundBaseScores(game, selections, state.draft.roundScores, state.draft.roundFlip7Awards);
+  const canTargetOpponent = canUseFlip7AwardWorkflow(game);
+  if (
+    award?.type === "targetPenalty" &&
+    canTargetOpponent &&
+    award.targetPlayerId &&
+    isFlip7AwardTargetEligible(game, selections, baseScores, playerId, award.targetPlayerId)
+  ) {
+    nextAwards[playerId] = {
+      playerId,
+      type: "targetPenalty",
+      targetPlayerId: award.targetPlayerId,
+      points: FLIP7_BONUS_POINTS
+    };
+  } else {
+    nextAwards[playerId] = {
+      playerId,
+      type: "selfBonus",
+      points: FLIP7_BONUS_POINTS
+    };
+  }
+
+  state.draft.roundFlip7Awards = nextAwards;
+  const result = calculateCardRoundScores(game, selections, nextAwards, baseScores, {
+    reverseExistingAwardScores: false
+  });
+  state.draft.roundScores = result.scores;
+  state.draft.roundFlip7Awards = result.awards;
+  syncFlip7AwardModalState(game);
+  cacheRoundDraft(game);
+}
+
+function getFirstFlip7AwardTarget(game, playerId) {
+  return getFlip7AwardTargets(game, playerId)[0]?.id || null;
+}
+
+function renderFlip7CardPicker(player, selection, game = state.data.currentGame) {
+  const stats = getFlip7CardSelectionStats(selection, game);
+  const specialCards = getSpecialCardsForGame(game);
   const selectionLabel = stats.flip7Bonus
     ? t("current.flip7Achieved")
     : t("current.cardsSelected", { count: stats.selectedCards.length });
@@ -1944,7 +2595,7 @@ function renderFlip7CardPicker(player, selection) {
         <span class="pill ${stats.flip7Bonus ? "pill-success" : "pill-muted"}">${escapeHtml(selectionLabel)}</span>
       </div>
       <div class="score-card-picker-grid score-card-picker-grid-numbers">
-        ${FLIP7_NUMBER_CARDS.map((value) => {
+        ${getNumberCardsForGame(game).map((value) => {
           const token = `number:${value}`;
           const isSelected = selection.includes(token);
           return renderFlip7CardButton({
@@ -1956,9 +2607,29 @@ function renderFlip7CardPicker(player, selection) {
           });
         }).join("")}
       </div>
+      ${
+        specialCards.length
+          ? `
+            <div class="score-card-picker-divider"></div>
+            <div class="score-card-picker-grid score-card-picker-grid-modifiers">
+              ${specialCards.map((card) => {
+                const isSelected = selection.includes(card.token);
+                return renderFlip7CardButton({
+                  token: card.token,
+                  label: card.label,
+                  playerId: player.id,
+                  selected: isSelected,
+                  disabled: card.token !== "special:unlucky7" && isLocked && !isSelected,
+                  modifier: true
+                });
+              }).join("")}
+            </div>
+          `
+          : ""
+      }
       <div class="score-card-picker-divider"></div>
       <div class="score-card-picker-grid score-card-picker-grid-modifiers">
-        ${FLIP7_MODIFIER_CARDS.map((card) => {
+        ${getModifierCardsForGame(game).map((card) => {
           const isSelected = selection.includes(card.token);
           return renderFlip7CardButton({
             token: card.token,
@@ -1993,7 +2664,7 @@ function getCardPickerNavigatorState(game) {
   const previousPlayer = currentIndex > 0 ? players[currentIndex - 1] : null;
   const nextPlayer = currentIndex >= 0 && currentIndex < players.length - 1 ? players[currentIndex + 1] : null;
   const selection = selectedPlayer ? getRoundCardSelections(game)[selectedPlayer.id] || [] : [];
-  const stats = getFlip7CardSelectionStats(selection);
+  const stats = getFlip7CardSelectionStats(selection, game);
 
   return {
     players,
@@ -2005,6 +2676,178 @@ function getCardPickerNavigatorState(game) {
     nextPlayerId: nextPlayer?.id || null,
     stats
   };
+}
+
+function renderFlip7AwardPanel(game, player, stats) {
+  if (!stats.flip7Bonus || !canUseFlip7AwardWorkflow(game)) {
+    return "";
+  }
+
+  const canTargetOpponent = canUseFlip7AwardWorkflow(game);
+  const players = canTargetOpponent ? getFlip7AwardTargets(game, player.id) : [];
+  const showTargetControls = canTargetOpponent && players.length > 0;
+  const award = state.draft.roundFlip7Awards?.[player.id] || {
+    playerId: player.id,
+    type: "selfBonus",
+    points: FLIP7_BONUS_POINTS
+  };
+  const isTargetPenalty = showTargetControls && award.type === "targetPenalty" && players.some((entry) => entry.id === award.targetPlayerId);
+
+  return `
+    <div class="flip7-award-panel">
+      <div class="flip7-award-head">
+        <strong>${escapeHtml(t("current.flip7Award"))}</strong>
+        <span class="muted">${escapeHtml(t("current.flip7AwardHint"))}</span>
+      </div>
+      <div class="current-mode-toggle flip7-award-toggle" role="group" aria-label="${escapeHtml(t("current.flip7Award"))}">
+        <button
+          class="${!isTargetPenalty ? "primary-action" : "secondary-action"}"
+          type="button"
+          data-action="set-flip7-award"
+          data-player-id="${escapeHtml(player.id)}"
+          data-award-type="selfBonus"
+        >
+          ${escapeHtml(t("current.flip7Take15"))}
+        </button>
+        ${
+          showTargetControls
+            ? `
+              <button
+                class="${isTargetPenalty ? "primary-action" : "secondary-action"}"
+                type="button"
+                data-action="set-flip7-award"
+                data-player-id="${escapeHtml(player.id)}"
+                data-award-type="targetPenalty"
+              >
+                ${escapeHtml(t("current.flip7GiveMinus15"))}
+              </button>
+            `
+            : ""
+        }
+      </div>
+      ${
+        isTargetPenalty
+          ? `
+            <div class="flip7-award-targets" aria-label="${escapeHtml(t("current.flip7ChooseTarget"))}">
+              <span class="field-label">${escapeHtml(t("current.flip7ChooseTarget"))}</span>
+              <div class="chip-list flip7-target-list">
+                ${players
+                  .map(
+                    (target) => `
+                      <button
+                        class="mode-option flip7-target-option ${award.targetPlayerId === target.id ? "is-active" : ""}"
+                        type="button"
+                        data-action="set-flip7-award-target"
+                        data-player-id="${escapeHtml(player.id)}"
+                        data-target-player-id="${escapeHtml(target.id)}"
+                      >
+                        ${escapeHtml(target.name)}
+                      </button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
+function renderFlip7AwardModal(game) {
+  const playerId = state.draft.flip7AwardModalPlayerId;
+  if (!playerId || !game || !elements.flip7AwardModal) {
+    return "";
+  }
+
+  const player = getRoundPlayers(game).find((entry) => entry.id === playerId);
+  if (!player) {
+    return "";
+  }
+
+  const selection = getRoundCardSelections(game)[player.id] || [];
+  const stats = getFlip7CardSelectionStats(selection, game);
+  if (!stats.flip7Bonus) {
+    return "";
+  }
+
+  const canTargetOpponent = canUseFlip7AwardWorkflow(game);
+  const players = canTargetOpponent ? getFlip7AwardTargets(game, player.id) : [];
+  const showTargetControls = canTargetOpponent && players.length > 0;
+  const award = state.draft.roundFlip7Awards?.[player.id] || {
+    playerId: player.id,
+    type: "selfBonus",
+    points: FLIP7_BONUS_POINTS
+  };
+  const isTargetPenalty = showTargetControls && award.type === "targetPenalty" && players.some((entry) => entry.id === award.targetPlayerId);
+
+  return `
+    <div class="stack-tight">
+      <div class="current-mode-toggle flip7-award-toggle" role="group" aria-label="${escapeHtml(t("current.flip7Award"))}">
+        <button
+          class="${!isTargetPenalty ? "primary-action" : "secondary-action"}"
+          type="button"
+          data-action="set-flip7-award"
+          data-player-id="${escapeHtml(player.id)}"
+          data-award-type="selfBonus"
+        >
+          ${escapeHtml(t("current.flip7Take15"))}
+        </button>
+        ${
+          showTargetControls
+            ? `
+              <button
+                class="${isTargetPenalty ? "primary-action" : "secondary-action"}"
+                type="button"
+                data-action="set-flip7-award"
+                data-player-id="${escapeHtml(player.id)}"
+                data-award-type="targetPenalty"
+              >
+                ${escapeHtml(t("current.flip7GiveMinus15"))}
+              </button>
+            `
+            : ""
+        }
+      </div>
+      ${
+        isTargetPenalty
+          ? `
+            <div class="flip7-award-targets" aria-label="${escapeHtml(t("current.flip7ChooseTarget"))}">
+              <span class="field-label">${escapeHtml(t("current.flip7ChooseTarget"))}</span>
+              <div class="chip-list flip7-target-list">
+                ${players
+                  .map(
+                    (target) => `
+                      <button
+                        class="mode-option flip7-target-option ${award.targetPlayerId === target.id ? "is-active" : ""}"
+                        type="button"
+                        data-action="set-flip7-award-target"
+                        data-player-id="${escapeHtml(player.id)}"
+                        data-target-player-id="${escapeHtml(target.id)}"
+                      >
+                        ${escapeHtml(target.name)}
+                      </button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+          : ""
+      }
+      <div class="modal-actions">
+        <button
+          class="primary-action"
+          type="button"
+          data-action="accept-flip7-award"
+          data-player-id="${escapeHtml(player.id)}"
+        >
+          ${escapeHtml(t("common.ok"))}
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 function renderCardPickerPanel(game) {
@@ -2019,14 +2862,47 @@ function renderCardPickerPanel(game) {
   }
 
   const selection = getRoundCardSelections(game)[player.id] || [];
-  const stats = getFlip7CardSelectionStats(selection);
+  const stats = getFlip7CardSelectionStats(selection, game);
+  const flip7AwardPromptHtml =
+    state.draft.flip7AwardModalPlayerId
+      ? `
+        <div class="flip7-award-inline">
+          ${renderFlip7AwardModal(game)}
+        </div>
+      `
+      : "";
+  const specialCards = getSpecialCardsForGame(game);
+  const numberCards = [
+    ...getNumberCardsForGame(game).map((value) => ({
+      token: `number:${value}`,
+      label: String(value),
+      modifier: false,
+      special: false
+    })),
+    ...specialCards.map((card) => ({
+      token: card.token,
+      label: card.label,
+      modifier: false,
+      special: true
+    }))
+  ];
   const manualScoreValue = String(state.draft.roundScores[player.id] ?? "").trim();
-  const manualEditActive = selection.length === 0 && manualScoreValue.length > 0;
+  const draftScoreValue = state.draft.roundScores?.[player.id];
+  const numericDraftScore = Number(draftScoreValue);
+  const hasDraftScore =
+    draftScoreValue !== "" && draftScoreValue !== null && draftScoreValue !== undefined && Number.isFinite(numericDraftScore);
+  const awardTokens = getFlip7AwardTokensForPlayer(game, player.id);
+  const manualEditActive =
+    selection.length === 0 &&
+    manualScoreValue.length > 0 &&
+    Number(manualScoreValue) !== 0 &&
+    awardTokens.length === 0;
+  const displayScore = manualEditActive ? Number(manualScoreValue || 0) : hasDraftScore ? numericDraftScore : stats.total;
   const summaryText = manualEditActive
     ? `${formatNumber(Number(manualScoreValue || 0))} ${t("common.points")} • ${t("current.manualEditActive")}`
     : stats.flip7Bonus
-      ? `${formatNumber(stats.total)} ${t("common.points")} • ${t("current.flip7Achieved")}`
-      : `${formatNumber(stats.total)} ${t("common.points")}`;
+      ? `${formatNumber(displayScore)} ${t("common.points")} • ${t("current.flip7Achieved")}`
+      : `${formatNumber(displayScore)} ${t("common.points")}`;
 
   return `
     <div class="score-card-picker-shell ${manualEditActive ? "is-manual-edit" : ""}">
@@ -2048,7 +2924,7 @@ function renderCardPickerPanel(game) {
           <strong title="${escapeHtml(navigator.currentPlayerName)}">${escapeHtml(navigator.currentPlayerName)}</strong>
           <span data-card-picker-count>${escapeHtml(
             manualEditActive ? t("current.manualEditActive") : t("current.cardsSelected", { count: stats.numberCount })
-          )} · ${escapeHtml(manualEditActive ? formatNumber(Number(manualScoreValue || 0)) : formatNumber(stats.total))} ${escapeHtml(
+          )} · ${escapeHtml(formatNumber(displayScore))} ${escapeHtml(
             t("common.points")
           )}</span>
         </div>
@@ -2066,23 +2942,26 @@ function renderCardPickerPanel(game) {
           </span>
         </button>
       </div>
+      ${flip7AwardPromptHtml}
       <p class="muted current-card-hint">${escapeHtml(t("current.cardModeHint"))}</p>
       <div class="score-card-picker-grid score-card-picker-grid-numbers">
-        ${FLIP7_NUMBER_CARDS.map((value) => {
-          const token = `number:${value}`;
-          const isSelected = selection.includes(token);
+        ${numberCards.map((card) => {
+          const isSelected = selection.includes(card.token);
           return renderFlip7CardButton({
-            token,
-            label: String(value),
+            token: card.token,
+            label: card.label,
             playerId: player.id,
             selected: isSelected,
-            disabled: manualEditActive || (stats.numberCount === 7 && !isSelected)
+            disabled:
+              manualEditActive ||
+              (card.special ? card.token !== "special:unlucky7" && stats.numberCount === 7 && !isSelected : stats.numberCount === 7 && !isSelected),
+            modifier: card.modifier
           });
         }).join("")}
       </div>
       <div class="score-card-picker-divider"></div>
       <div class="score-card-picker-grid score-card-picker-grid-modifiers">
-        ${FLIP7_MODIFIER_CARDS.map((card) => {
+        ${getModifierCardsForGame(game).map((card) => {
           const isSelected = selection.includes(card.token);
           return renderFlip7CardButton({
             token: card.token,
@@ -2105,6 +2984,7 @@ function renderCardPickerPanel(game) {
           ${escapeHtml(t("current.clearCards"))}
         </button>
       </div>
+      ${renderFlip7AwardPanel(game, player, stats)}
     </div>
   `;
 }
@@ -2150,17 +3030,21 @@ function makePlayers(playerNames) {
   }));
 }
 
-function makeNewGame({ title, gameMode, winningScore, defaultScoreInputMode, playerNames }) {
+function makeNewGame({ title, gameMode, winningScore, defaultScoreInputMode, brutalRules, playerNames }) {
   const players = makePlayers(playerNames);
   const timestamp = now();
+  const normalizedBrutalRules = gameMode === "vengeance" ? normalizeBrutalRules(brutalRules) : { ...DEFAULT_BRUTAL_RULES };
 
   return {
     id: createUuid(),
     title: title.trim() || "Flip 7 Game",
     gameMode,
+    brutalRules: normalizedBrutalRules,
     winningScore,
     defaultScoreInputMode:
-      gameMode === "classic" ? normalizeScoreInputMode(defaultScoreInputMode) : SCORE_INPUT_MODES.manual,
+      gameMode === "classic" || gameMode === "vengeance"
+        ? normalizeScoreInputMode(defaultScoreInputMode)
+        : SCORE_INPUT_MODES.manual,
     createdAt: timestamp,
     updatedAt: timestamp,
     completedAt: null,
@@ -2177,6 +3061,7 @@ function makeRestartedGame(game, title = game.title) {
     gameMode: game.gameMode,
     winningScore: game.winningScore,
     defaultScoreInputMode: game.defaultScoreInputMode,
+    brutalRules: game.brutalRules,
     playerNames: game.players.map((player) => player.name)
   });
 }
@@ -2291,11 +3176,15 @@ function createBlankRoundDraft(game, roundKey = getRoundDraftKey()) {
   const round = roundKey === "new" ? null : game?.rounds.find((entry) => entry.id === roundKey) || null;
   const storedSelections =
     round && round.cardSelections && typeof round.cardSelections === "object" ? round.cardSelections : {};
+  const storedScores = Object.fromEntries((round?.scores || []).map((score) => [score.playerId, String(score.points)]));
+  const storedBaseScores = getCardRoundBaseScores(game, storedSelections, storedScores, round?.flip7Awards);
+  const storedAwards = normalizeFlip7Awards(round?.flip7Awards, game, storedSelections, storedBaseScores);
   return {
     roundNote: "",
     roundScores: Object.fromEntries(players.map((player) => [player.id, ""])),
     scoreInputMode,
     cardPickerPlayerId: scoreInputMode === SCORE_INPUT_MODES.cards ? players[0]?.id || null : null,
+    flip7AwardModalPlayerId: null,
     roundCardSelections: Object.fromEntries(
       players.map((player) => [
         player.id,
@@ -2303,7 +3192,8 @@ function createBlankRoundDraft(game, roundKey = getRoundDraftKey()) {
           ? storedSelections[player.id].map(normalizeCardToken).filter((token) => token !== null)
           : []
       ])
-    )
+    ),
+    roundFlip7Awards: storedAwards
   };
 }
 
@@ -2327,6 +3217,8 @@ function createRoundDraftFromRound(game, round) {
   for (const score of round.scores) {
     draft.roundScores[score.playerId] = String(score.points);
   }
+  const baseScores = getCardRoundBaseScores(game, draft.roundCardSelections, draft.roundScores, round.flip7Awards);
+  draft.roundFlip7Awards = normalizeFlip7Awards(round.flip7Awards, game, draft.roundCardSelections, baseScores);
 
   return draft;
 }
@@ -2335,6 +3227,8 @@ function normalizeRoundDraft(game, draft, roundKey = getRoundDraftKey()) {
   const players = getRoundPlayers(game, roundKey);
   const nextScores = {};
   const nextCardSelections = {};
+  const rawFlip7Awards =
+    draft?.roundFlip7Awards && typeof draft.roundFlip7Awards === "object" ? draft.roundFlip7Awards : {};
   for (const player of players) {
     const currentValue = draft?.roundScores?.[player.id];
     nextScores[player.id] =
@@ -2346,6 +3240,8 @@ function normalizeRoundDraft(game, draft, roundKey = getRoundDraftKey()) {
     const normalizedSelection = currentSelection.map(normalizeCardToken).filter((token) => token !== null);
     nextCardSelections[player.id] = normalizedSelection;
   }
+  const nextBaseScores = getCardRoundBaseScores(game, nextCardSelections, nextScores, rawFlip7Awards);
+  const nextFlip7Awards = normalizeFlip7Awards(rawFlip7Awards, game, nextCardSelections, nextBaseScores);
 
   const isLiveDraft = roundKey === "new" && isClassicCardModeGame(game);
   const currentMode =
@@ -2367,7 +3263,13 @@ function normalizeRoundDraft(game, draft, roundKey = getRoundDraftKey()) {
     roundScores: nextScores,
     scoreInputMode: currentMode,
     cardPickerPlayerId: nextPickerId,
-    roundCardSelections: nextCardSelections
+    flip7AwardModalPlayerId:
+      typeof draft?.flip7AwardModalPlayerId === "string" &&
+      players.some((player) => player.id === draft.flip7AwardModalPlayerId)
+        ? draft.flip7AwardModalPlayerId
+        : null,
+    roundCardSelections: nextCardSelections,
+    roundFlip7Awards: nextFlip7Awards
   };
 }
 
@@ -2378,7 +3280,9 @@ function cacheRoundDraft(game, roundKey = state.draft.currentRoundKey) {
     roundScores: state.draft.roundScores,
     scoreInputMode: state.draft.scoreInputMode,
     cardPickerPlayerId: state.draft.cardPickerPlayerId,
-    roundCardSelections: state.draft.roundCardSelections
+    flip7AwardModalPlayerId: state.draft.flip7AwardModalPlayerId,
+    roundCardSelections: state.draft.roundCardSelections,
+    roundFlip7Awards: state.draft.roundFlip7Awards
   }, key);
   state.draft.roundDrafts[key] = draft;
   return draft;
@@ -2400,7 +3304,9 @@ function resetLiveRoundDraft(game, { scoreInputMode } = {}) {
   state.draft.roundScores = blankDraft.roundScores;
   state.draft.scoreInputMode = blankDraft.scoreInputMode;
   state.draft.cardPickerPlayerId = blankDraft.cardPickerPlayerId;
+  state.draft.flip7AwardModalPlayerId = null;
   state.draft.roundCardSelections = blankDraft.roundCardSelections;
+  state.draft.roundFlip7Awards = blankDraft.roundFlip7Awards;
   state.draft.roundDrafts.new = blankDraft;
 }
 
@@ -2411,14 +3317,17 @@ function loadRoundDraft(game, roundKey = "new") {
     state.draft.roundScores = {};
     state.draft.scoreInputMode = SCORE_INPUT_MODES.manual;
     state.draft.cardPickerPlayerId = null;
+    state.draft.flip7AwardModalPlayerId = null;
     state.draft.roundCardSelections = {};
+    state.draft.roundFlip7Awards = {};
     state.draft.roundDrafts = {
       new: {
         roundNote: "",
         roundScores: {},
         scoreInputMode: SCORE_INPUT_MODES.manual,
         cardPickerPlayerId: null,
-        roundCardSelections: {}
+        roundCardSelections: {},
+        roundFlip7Awards: {}
       }
     };
     return;
@@ -2436,7 +3345,9 @@ function loadRoundDraft(game, roundKey = "new") {
   state.draft.roundScores = normalized.roundScores;
   state.draft.scoreInputMode = normalized.scoreInputMode;
   state.draft.cardPickerPlayerId = normalized.cardPickerPlayerId;
+  state.draft.flip7AwardModalPlayerId = normalized.flip7AwardModalPlayerId;
   state.draft.roundCardSelections = normalized.roundCardSelections;
+  state.draft.roundFlip7Awards = normalized.roundFlip7Awards;
   state.draft.roundDrafts[key] = normalized;
 }
 
@@ -2481,10 +3392,11 @@ function getRoundDraftPayload(game, { includeDefaultScoreInputMode = false } = {
     note: state.draft.roundNote.trim(),
     scores,
     scoreInputMode: normalizeScoreInputMode(state.draft.scoreInputMode),
-    cardSelections: state.draft.roundCardSelections
+    cardSelections: state.draft.roundCardSelections,
+    flip7Awards: state.draft.scoreInputMode === SCORE_INPUT_MODES.cards ? getFlip7AwardList(game) : []
   };
 
-  if (includeDefaultScoreInputMode && game?.gameMode === "classic") {
+  if (includeDefaultScoreInputMode && isCardInputModeGame(game)) {
     payload.defaultScoreInputMode = normalizeScoreInputMode(state.draft.scoreInputMode);
   }
 
@@ -2547,12 +3459,14 @@ function isRoundDraftChanged(game) {
   const currentSelectionSignature = players
     .map((player) => `${player.id}:${(state.draft.roundCardSelections?.[player.id] || []).join(",")}`)
     .join("|");
+  const currentAwardSignature = JSON.stringify(getFlip7AwardList(game));
 
   if (!selectedRound) {
     return (
       currentNote.length > 0 ||
       players.some((player) => state.draft.roundScores[player.id] !== "") ||
-      players.some((player) => Array.isArray(state.draft.roundCardSelections?.[player.id]) && state.draft.roundCardSelections[player.id].length > 0)
+      players.some((player) => Array.isArray(state.draft.roundCardSelections?.[player.id]) && state.draft.roundCardSelections[player.id].length > 0) ||
+      getFlip7AwardList(game).length > 0
     );
   }
 
@@ -2569,6 +3483,22 @@ function isRoundDraftChanged(game) {
     .map((player) => `${player.id}:${(selectedRound.cardSelections?.[player.id] || []).join(",")}`)
     .join("|");
   if (baselineSelectionSignature !== currentSelectionSignature) {
+    return true;
+  }
+
+  const baselineScores = Object.fromEntries(selectedRound.scores.map((score) => [score.playerId, String(score.points)]));
+  const baselineBaseScores = getCardRoundBaseScores(game, selectedRound.cardSelections, baselineScores, selectedRound.flip7Awards);
+  const baselineAwardSignature = JSON.stringify(
+    Object.values(
+      normalizeFlip7Awards(
+        selectedRound.flip7Awards,
+        game,
+        selectedRound.cardSelections,
+        baselineBaseScores
+      )
+    )
+  );
+  if (baselineAwardSignature !== currentAwardSignature) {
     return true;
   }
 
@@ -2597,6 +3527,9 @@ async function saveFinishedRoundNote() {
   }
   const payload = {
     note,
+    scoreInputMode: selectedRound.scoreInputMode,
+    cardSelections: selectedRound.cardSelections || {},
+    flip7Awards: selectedRound.flip7Awards || [],
     scores: selectedRound.scores.map((score) => ({
       playerId: score.playerId,
       points: score.points
@@ -2693,9 +3626,13 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
     return;
   }
 
+  if (requirePendingFlip7AwardChoice(game)) {
+    return;
+  }
+
   const selectedRound = getSelectedRound(game);
   const nextLiveScoreInputMode = state.draft.scoreInputMode;
-  const shouldPersistLiveInputMode = !selectedRound && game.gameMode === "classic";
+  const shouldPersistLiveInputMode = !selectedRound && isCardInputModeGame(game);
 
   if (!force && !isRoundDraftChanged(game)) {
     if (nextRoundKey) {
@@ -2716,6 +3653,9 @@ async function commitRoundDraft(nextRoundKey = "new", { force = false } = {}) {
     id: selectedRound?.id || createUuid(),
     createdAt: selectedRound?.createdAt || now(),
     note: requestPayload.note,
+    scoreInputMode: requestPayload.scoreInputMode,
+    cardSelections: requestPayload.cardSelections,
+    flip7Awards: requestPayload.flip7Awards,
     scores: requestPayload.scores
   };
   const optimisticGame = selectedRound
@@ -3140,7 +4080,7 @@ function renderNewGameScreen() {
         <div class="field">
           <span class="field-label">${escapeHtml(t("current.scoreInputMode"))}</span>
           ${
-            draft.gameMode === "classic"
+            draft.gameMode === "classic" || draft.gameMode === "vengeance"
               ? `
                 ${renderInputModeToggle({
                   value: draft.scoreInputMode,
@@ -3153,6 +4093,11 @@ function renderNewGameScreen() {
               : ""
           }
         </div>
+        ${
+          draft.gameMode === "vengeance"
+            ? renderBrutalRulesControls(draft.brutalRules, { action: "toggle-new-game-brutal-rule" })
+            : ""
+        }
         <label class="field">
           <span class="field-label">${escapeHtml(t("newGame.winningScoreLabel"))}</span>
           <input
@@ -3342,19 +4287,58 @@ function getCardTokenLabel(token) {
   }
 
   if (token.startsWith("modifier:")) {
-    return token.slice("modifier:".length);
+    const modifier = token.slice("modifier:".length);
+    return modifier === "/2" ? "÷2" : modifier;
+  }
+
+  if (token === "special:lucky13") {
+    return "U13";
+  }
+
+  if (token === "special:unlucky7") {
+    return "U7";
+  }
+
+  if (token === "special:zero") {
+    return "Zero";
   }
 
   return token;
 }
 
-function renderScanTokenList(tokens) {
+function renderCardTokenList(tokens, emptyLabel = "") {
   if (!tokens?.length) {
-    return `<span class="muted">${escapeHtml(t("current.scanRound.noCards"))}</span>`;
+    return emptyLabel ? `<span class="muted">${escapeHtml(emptyLabel)}</span>` : "";
   }
 
-  return tokens
-    .map((token) => `<span class="scan-token">${escapeHtml(getCardTokenLabel(token))}</span>`)
+  return tokens.map((token) => `<span class="scan-token">${escapeHtml(getCardTokenLabel(token))}</span>`).join("");
+}
+
+function renderScanTokenList(tokens) {
+  return renderCardTokenList(tokens, t("current.scanRound.noCards"));
+}
+
+function renderCardPreviewTokens(game, playerId, tokens) {
+  const awardTokens = getFlip7AwardTokensForPlayer(game, playerId);
+  const previewTokens = [
+    ...awardTokens,
+    ...(Array.isArray(tokens) ? tokens : [])
+  ];
+
+  if (!previewTokens.length) {
+    return "";
+  }
+
+  return previewTokens
+    .map((token) => {
+      if (typeof token === "object" && token && "label" in token && "tone" in token) {
+        return `<span class="scan-token score-preview-award-token score-preview-award-token-${escapeHtml(token.tone)}">${escapeHtml(
+          token.label
+        )}</span>`;
+      }
+
+      return `<span class="scan-token">${escapeHtml(getCardTokenLabel(token))}</span>`;
+    })
     .join("");
 }
 
@@ -3464,7 +4448,7 @@ function renderScanRoundScreen(game) {
                         <input
                           type="text"
                           inputmode="numeric"
-                          pattern="[0-9]*"
+                          pattern="-?[0-9]*"
                           placeholder="${escapeHtml(t("current.scanRound.scoreLabel"))}"
                           autocomplete="off"
                           data-scan-score-player-id="${escapeHtml(player.id)}"
@@ -3576,6 +4560,7 @@ function renderCurrentGameScreen() {
   const scoresSignature = orderedPlayers
     .map((player) => `${player.id}:${draftForSelectedRound.roundScores[player.id] ?? ""}`)
     .join("|");
+  const awardSignature = JSON.stringify(Object.values(draftForSelectedRound.roundFlip7Awards || {}));
   const editorKey = [
     game.id,
     currentRoundKey,
@@ -3583,6 +4568,10 @@ function renderCurrentGameScreen() {
     state.draft.currentGameOrder,
     scoreInputMode,
     currentCardPickerPlayerId || "none",
+    cardSelectionSignature,
+    scoresSignature,
+    awardSignature,
+    state.draft.flip7AwardModalPlayerId || "no-award-prompt",
     canEditScores ? "edit" : "locked",
     game.players.map((player) => `${player.id}:${player.name}`).join("|")
   ].join("::");
@@ -3809,15 +4798,61 @@ function renderCurrentGameScreen() {
               const value = isEliminated ? "" : draftForSelectedRound.roundScores[player.id] ?? "";
               const livePreview = liveScorePreviewState?.previews.get(player.id) || null;
               const playerCardSelections = draftForSelectedRound.roundCardSelections?.[player.id] || [];
+              const isCardPreviewMode = scoreInputMode === SCORE_INPUT_MODES.cards;
               const scoreInputDisabled = !canEditScores || (scoreInputMode === SCORE_INPUT_MODES.cards && playerCardSelections.length > 0);
               const displayedTotal = livePreview?.hasValue
                 ? livePreview.projectedTotal
                 : currentRoundKey === "new"
                   ? total + roundDraftValue
                   : total;
+              const scorePreviewHtml = isCardPreviewMode
+                ? `
+                  <div class="score-preview-cards" data-live-score-preview-cards aria-label="${escapeHtml(
+                    t("current.scanRound.detectedCards")
+                  )}">
+                    ${renderCardPreviewTokens(game, player.id, playerCardSelections)}
+                  </div>
+                  <span class="score-preview-gap" data-live-score-preview-gap>${
+                    livePreview
+                      ? escapeHtml(
+                          getCurrentGamePreviewLabel(
+                            livePreview.projectedTotal,
+                            liveScorePreviewState.leaderTotal,
+                            liveScorePreviewState.leaderCount
+                          )
+                        )
+                      : ""
+                  }</span>
+                `
+                : showLiveScorePreview && !isEliminated
+                  ? `
+                    <span class="score-preview-total" data-live-score-preview-total>${
+                      livePreview?.hasValue
+                        ? escapeHtml(
+                            t("current.liveScorePreview", {
+                              committed: formatNumber(livePreview.committedTotal),
+                              entered: formatNumber(livePreview.enteredPoints),
+                              projected: formatNumber(livePreview.projectedTotal)
+                            })
+                          )
+                        : ""
+                    }</span>
+                    <span class="score-preview-gap" data-live-score-preview-gap>${
+                      livePreview
+                        ? escapeHtml(
+                            getCurrentGamePreviewLabel(
+                              livePreview.projectedTotal,
+                              liveScorePreviewState.leaderTotal,
+                              liveScorePreviewState.leaderCount
+                            )
+                          )
+                        : ""
+                    }</span>
+                  `
+                  : "";
               return `
                 <div
-                  class="score-row ${showLiveScorePreview ? "has-live-score-preview" : ""} ${isEliminated ? "is-eliminated" : ""}"
+                  class="score-row ${showLiveScorePreview || isCardPreviewMode ? "has-live-score-preview" : ""} ${isCardPreviewMode ? "is-card-mode" : ""} ${isEliminated ? "is-eliminated" : ""}"
                   data-player-id="${escapeHtml(player.id)}"
                 >
                   <label class="field">
@@ -3827,33 +4862,8 @@ function renderCurrentGameScreen() {
                     )}</span>
                   </label>
                   ${
-                    showLiveScorePreview && !isEliminated
-                      ? `
-                        <div class="score-preview" data-score-preview>
-                          <span class="score-preview-total" data-live-score-preview-total>${
-                            livePreview?.hasValue
-                              ? escapeHtml(
-                                  t("current.liveScorePreview", {
-                                    committed: formatNumber(livePreview.committedTotal),
-                                    entered: formatNumber(livePreview.enteredPoints),
-                                    projected: formatNumber(livePreview.projectedTotal)
-                                  })
-                                )
-                              : ""
-                          }</span>
-                          <span class="score-preview-gap" data-live-score-preview-gap>${
-                            livePreview
-                              ? escapeHtml(
-                                  getCurrentGamePreviewLabel(
-                                    livePreview.projectedTotal,
-                                    liveScorePreviewState.leaderTotal,
-                                    liveScorePreviewState.leaderCount
-                                  )
-                                )
-                              : ""
-                          }</span>
-                        </div>
-                      `
+                    (showLiveScorePreview || isCardPreviewMode) && !isEliminated
+                      ? `<div class="score-preview" data-score-preview>${scorePreviewHtml}</div>`
                       : ""
                   }
                   ${
@@ -3865,7 +4875,7 @@ function renderCurrentGameScreen() {
                           step="1"
                           inputmode="numeric"
                           enterkeyhint="next"
-                          pattern="[0-9]*"
+                          pattern="-?[0-9]*"
                           autocomplete="off"
                           data-player-id="${escapeHtml(player.id)}"
                           data-player-index="${index}"
@@ -3950,6 +4960,18 @@ function renderCurrentGameScreen() {
               ${escapeHtml(t("current.cardMode"))}
             </button>
           </div>
+        </div>
+      `
+      : "";
+
+  const brutalRulesHtml = () =>
+    game.gameMode === "vengeance"
+      ? `
+        <div class="stack-tight current-details-settings">
+          ${renderBrutalRulesControls(game.brutalRules, {
+            action: "toggle-current-brutal-rule",
+            disabled: Boolean(game.isFinished)
+          })}
         </div>
       `
       : "";
@@ -4136,6 +5158,7 @@ function renderCurrentGameScreen() {
         ${statusBannerHtml()}
         ${winnerBannerHtml()}
         ${roundInputSettingsHtml()}
+        ${brutalRulesHtml()}
         ${rosterHtml()}
         ${noteHtml()}
         ${renderRoundHistory()}
@@ -4184,6 +5207,28 @@ function renderCurrentGameScreen() {
   setSlot("editor", editorHtml, editorKey, "renderKey");
   setSlot("details", detailsHtml, detailsKey, "renderKey");
   setSlot("secondary", secondaryHtml, secondaryKey, "renderKey");
+
+  if (elements.flip7AwardModal) {
+    const modalOpen = Boolean(state.draft.flip7AwardModalPlayerId);
+    elements.flip7AwardModal.classList.toggle("hidden", !modalOpen);
+    elements.flip7AwardModal.setAttribute("aria-hidden", String(!modalOpen));
+    if (modalOpen) {
+      const modalPlayer = getRoundPlayers(game).find((player) => player.id === state.draft.flip7AwardModalPlayerId);
+      if (elements.flip7AwardTitle) {
+        elements.flip7AwardTitle.textContent = modalPlayer ? modalPlayer.name : t("current.flip7Award");
+      }
+      if (elements.flip7AwardMessage) {
+        elements.flip7AwardMessage.textContent = modalPlayer
+          ? t("current.flip7AwardHint")
+          : t("current.flip7Award");
+      }
+      if (elements.flip7AwardBody) {
+        elements.flip7AwardBody.innerHTML = renderFlip7AwardModal(game);
+      }
+    } else if (elements.flip7AwardBody) {
+      elements.flip7AwardBody.innerHTML = "";
+    }
+  }
 }
 
 function renderStatsScreen() {
@@ -4412,6 +5457,12 @@ function renderSettingsScreen() {
           })}
           <div class="helper">${escapeHtml(t("settings.inputModeHelp"))}</div>
         </div>
+        <div class="stack-tight">
+          ${renderBrutalRulesControls(state.settings.defaultVengeanceBrutalRules, {
+            action: "toggle-settings-brutal-rule"
+          })}
+          <div class="helper">${escapeHtml(t("settings.vengeanceBrutalHelp"))}</div>
+        </div>
         <label class="field">
           <span class="field-label">${escapeHtml(t("settings.theme"))}</span>
           <select id="settings-theme">
@@ -4587,7 +5638,7 @@ function render() {
   }
   requestAnimationFrame(() => {
     if (state.route === "new-game") {
-      document.querySelector("#new-player-input")?.focus();
+      document.querySelector("#new-player-input")?.focus({ preventScroll: true });
     } else if (
       state.route === "current-game" &&
       isRoundDraftEditable(state.data.currentGame) &&
@@ -4598,16 +5649,29 @@ function render() {
         focusCurrentPlayerInput();
       } else if (focusTarget === "rename-player") {
         focusCurrentPlayerRenameInput();
+      } else if (typeof focusTarget === "string" && focusTarget.startsWith("score:")) {
+        focusCurrentScoreInput(getCurrentGameScoreInputByPlayerId(focusTarget.slice("score:".length)));
       } else if (scanFocusTarget) {
         document
           .querySelector(`[data-scan-score-player-id="${scanFocusTarget}"]`)
           ?.focus();
+      } else if (state.draft.scoreInputMode === SCORE_INPUT_MODES.cards && state.draft.cardPickerPlayerId) {
+        focusCurrentScoreInput(getCurrentGameScoreInputByPlayerId(state.draft.cardPickerPlayerId));
       } else {
         focusCurrentScoreInput();
       }
     } else if (state.route === "settings") {
       document.querySelector("#settings-winning-score")?.focus();
     }
+  });
+}
+
+function renderPreservingScroll() {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  render();
+  requestAnimationFrame(() => {
+    window.scrollTo(scrollX, scrollY);
   });
 }
 
@@ -4869,6 +5933,7 @@ function resetNewGameDraft() {
     title: "",
     titleSuggestionIndex: nextSuggestionIndex % NEW_GAME_TITLE_DESCRIPTORS_COUNT,
     gameMode: "classic",
+    brutalRules: { ...DEFAULT_BRUTAL_RULES },
     winningScore: String(state.settings.defaultWinningScore),
     scoreInputMode: getNewGameScoreInputMode("classic", state.settings.defaultScoreInputMode),
     playerInput: "",
@@ -4877,9 +5942,17 @@ function resetNewGameDraft() {
 }
 
 function setNewGameMode(mode) {
+  const previousMode = state.draft.newGame.gameMode;
   state.draft.newGame.gameMode = mode === "vengeance" || mode === "mixed" ? mode : "classic";
+  if (state.draft.newGame.gameMode !== "vengeance") {
+    state.draft.newGame.brutalRules = { ...DEFAULT_BRUTAL_RULES };
+  } else if (previousMode !== "vengeance") {
+    state.draft.newGame.brutalRules = { ...state.settings.defaultVengeanceBrutalRules };
+  } else {
+    state.draft.newGame.brutalRules = normalizeBrutalRules(state.draft.newGame.brutalRules);
+  }
   state.draft.newGame.scoreInputMode =
-    state.draft.newGame.gameMode === "classic"
+    state.draft.newGame.gameMode === "classic" || state.draft.newGame.gameMode === "vengeance"
       ? normalizeScoreInputMode(state.settings.defaultScoreInputMode)
       : SCORE_INPUT_MODES.manual;
 }
@@ -4889,6 +5962,9 @@ function seedNewGameFromPlayers(players, game) {
     title: game?.title || "",
     titleSuggestionIndex: state.draft.newGame?.titleSuggestionIndex ?? 0,
     gameMode: game?.gameMode || "classic",
+    brutalRules: isVengeanceMode(game)
+      ? normalizeBrutalRules(game?.brutalRules)
+      : { ...state.settings.defaultVengeanceBrutalRules },
     winningScore: String(game?.winningScore || state.settings.defaultWinningScore),
     scoreInputMode: getNewGameScoreInputMode(
       game?.gameMode || "classic",
@@ -4932,6 +6008,8 @@ async function saveCurrentGameTitle(titleInput = state.draft.currentGameTitleInp
 
     if (payload.game) {
       state.data.currentGame = payload.game;
+      syncCardRoundScores(state.data.currentGame);
+      cacheRoundDraft(state.data.currentGame);
       ensureRoundDraft(state.data.currentGame);
     }
 
@@ -4943,13 +6021,102 @@ async function saveCurrentGameTitle(titleInput = state.draft.currentGameTitleInp
   }
 }
 
+async function saveCurrentGameBrutalRules(nextRules) {
+  const game = state.data.currentGame;
+  if (!game || game.gameMode !== "vengeance") {
+    return;
+  }
+
+  const normalized = normalizeBrutalRules(nextRules);
+  const snapshot = snapshotAppState();
+
+  try {
+    state.data.currentGame = {
+      ...game,
+      updatedAt: now(),
+      brutalRules: normalized
+    };
+    syncCardRoundScores(state.data.currentGame);
+    cacheRoundDraft(state.data.currentGame);
+    ensureRoundDraft(state.data.currentGame);
+    render();
+
+    const payload = await api(`/api/game/${encodeURIComponent(game.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ brutalRules: normalized })
+    });
+
+    if (payload.game) {
+      state.data.currentGame = payload.game;
+      ensureRoundDraft(state.data.currentGame);
+    }
+
+    render();
+  } catch (error) {
+    restoreAppState(snapshot);
+    showToast(error.message, true);
+    render();
+  }
+}
+
+function setNewGameBrutalRule(rule, enabled) {
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_BRUTAL_RULES, rule)) {
+    return;
+  }
+
+  state.draft.newGame.brutalRules = {
+    ...normalizeBrutalRules(state.draft.newGame.brutalRules),
+    [rule]: Boolean(enabled)
+  };
+}
+
+function setSettingsVengeanceBrutalRule(rule, enabled) {
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_BRUTAL_RULES, rule)) {
+    return;
+  }
+
+  state.settings.defaultVengeanceBrutalRules = {
+    ...normalizeBrutalRules(state.settings.defaultVengeanceBrutalRules),
+    [rule]: Boolean(enabled)
+  };
+
+  if (state.draft.newGame.gameMode === "vengeance") {
+    state.draft.newGame.brutalRules = { ...state.settings.defaultVengeanceBrutalRules };
+  }
+
+  saveSettings();
+}
+
+async function setCurrentGameBrutalRule(rule, enabled) {
+  const game = state.data.currentGame;
+  if (!game || game.gameMode !== "vengeance" || !Object.prototype.hasOwnProperty.call(DEFAULT_BRUTAL_RULES, rule)) {
+    return;
+  }
+
+  await saveCurrentGameBrutalRules({
+    ...normalizeBrutalRules(game.brutalRules),
+    [rule]: Boolean(enabled)
+  });
+}
+
 async function startGame() {
   clearFinishedRoundNoteAutosave();
-  const players = [...state.draft.newGame.players];
+  const newGameDraft = {
+    title: state.draft.newGame.title,
+    titleSuggestionIndex: state.draft.newGame.titleSuggestionIndex,
+    gameMode: state.draft.newGame.gameMode,
+    brutalRules: {
+      ...normalizeBrutalRules(state.draft.newGame.brutalRules)
+    },
+    winningScore: state.draft.newGame.winningScore,
+    scoreInputMode: state.draft.newGame.scoreInputMode,
+    players: [...state.draft.newGame.players]
+  };
+  const players = [...newGameDraft.players];
   const title =
-    state.draft.newGame.title.trim() ||
-    buildSessionTitleSuggestion(state.settings.language, state.draft.newGame.titleSuggestionIndex);
-  const gameMode = state.draft.newGame.gameMode;
+    newGameDraft.title.trim() ||
+    buildSessionTitleSuggestion(state.settings.language, newGameDraft.titleSuggestionIndex);
+  const gameMode = newGameDraft.gameMode;
 
   if (players.length < 2) {
     showToast(t("newGame.noPlayersYet"), true);
@@ -4966,7 +6133,8 @@ async function startGame() {
       title,
       gameMode,
       winningScore: normalizedWinningScore,
-      defaultScoreInputMode: state.draft.newGame.scoreInputMode,
+      defaultScoreInputMode: newGameDraft.scoreInputMode,
+      brutalRules: newGameDraft.brutalRules,
       playerNames: players
     });
 
@@ -4992,7 +6160,8 @@ async function startGame() {
         players,
         gameMode,
         winningScore: normalizedWinningScore,
-        defaultScoreInputMode: state.draft.newGame.scoreInputMode
+        defaultScoreInputMode: newGameDraft.scoreInputMode,
+        brutalRules: newGameDraft.brutalRules
       })
     });
 
@@ -5131,6 +6300,16 @@ function focusCurrentScoreInput(target = null) {
     input.focus({ preventScroll: true });
     input.select();
   });
+}
+
+function getCurrentGameScoreInputByPlayerId(playerId) {
+  if (typeof playerId !== "string" || !playerId.length) {
+    return null;
+  }
+
+  return [...document.querySelectorAll('#current-game-form input[data-player-id]')].find(
+    (entry) => entry instanceof HTMLInputElement && entry.dataset.playerId === playerId
+  );
 }
 
 function focusCurrentPlayerInput(target = null) {
@@ -5532,6 +6711,12 @@ function updateSettingsFromControls(shouldRender = true) {
 
 function resetPreferences() {
   state.settings = getDefaultSettings();
+  if (state.draft.newGame.gameMode === "classic" || state.draft.newGame.gameMode === "vengeance") {
+    state.draft.newGame.scoreInputMode = state.settings.defaultScoreInputMode;
+  }
+  if (state.draft.newGame.gameMode === "vengeance") {
+    state.draft.newGame.brutalRules = { ...state.settings.defaultVengeanceBrutalRules };
+  }
   saveSettings();
   showToast(t("toast.preferencesReset"));
   render();
@@ -5646,6 +6831,10 @@ async function deleteArchivedGame(gameId) {
 }
 
 async function saveRound() {
+  if (requirePendingFlip7AwardChoice(state.data.currentGame)) {
+    return;
+  }
+
   return commitRoundDraft("new", { force: true });
 }
 
@@ -5706,6 +6895,13 @@ function wireGlobalEvents() {
   elements.archiveConfirmModal.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
       closeArchiveConfirmModal();
+    }
+  });
+
+  elements.flip7AwardModal.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
+      state.draft.flip7AwardModalPlayerId = null;
+      render();
     }
   });
 
@@ -5817,6 +7013,7 @@ function wireGlobalEvents() {
     } else if (target.matches('#current-game-form input[data-player-id]')) {
       const playerId = target.dataset.playerId;
       if (playerId) {
+        state.draft.cardPickerPlayerId = playerId;
         state.draft.roundScores[playerId] = target.value;
         if (state.data.currentGame) {
           cacheRoundDraft(state.data.currentGame);
@@ -5858,7 +7055,7 @@ function wireGlobalEvents() {
 
     if (target.id === "new-game-mode") {
       setNewGameMode(target.value);
-      render();
+      renderPreservingScroll();
       return;
     }
 
@@ -5890,6 +7087,35 @@ function wireGlobalEvents() {
     if (target.matches("[data-scan-score-player-id]")) {
       render();
     }
+  });
+
+  document.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const game = state.data.currentGame;
+    if (!game || state.route !== "current-game" || !isRoundDraftEditable(game)) {
+      return;
+    }
+
+    if (!target.matches('#current-game-form input[data-player-id]')) {
+      return;
+    }
+
+    const playerId = target.dataset.playerId;
+    if (!playerId) {
+      return;
+    }
+
+    if (state.draft.cardPickerPlayerId === playerId) {
+      return;
+    }
+
+    state.draft.cardPickerPlayerId = playerId;
+    cacheRoundDraft(game);
+    renderPreservingScroll();
   });
 
   document.addEventListener("focusout", (event) => {
@@ -6046,25 +7272,32 @@ function wireGlobalEvents() {
         }
         await openGameFromList(gameId);
       } else if (action === "set-new-game-mode" && actionTarget.dataset.mode) {
-        state.draft.newGame.gameMode = actionTarget.dataset.mode;
-        state.draft.newGame.scoreInputMode =
-          state.draft.newGame.gameMode === "classic"
-            ? normalizeScoreInputMode(state.settings.defaultScoreInputMode)
-            : SCORE_INPUT_MODES.manual;
-        render();
+        setNewGameMode(actionTarget.dataset.mode);
+        renderPreservingScroll();
       } else if (action === "set-new-game-input-mode" && actionTarget.dataset.mode) {
-        if (state.draft.newGame.gameMode !== "classic") {
+        if (state.draft.newGame.gameMode !== "classic" && state.draft.newGame.gameMode !== "vengeance") {
           return;
         }
 
         state.draft.newGame.scoreInputMode =
           actionTarget.dataset.mode === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
-        render();
+        renderPreservingScroll();
+      } else if (action === "toggle-new-game-brutal-rule" && actionTarget.dataset.rule) {
+        setNewGameBrutalRule(actionTarget.dataset.rule, actionTarget.checked);
+        renderPreservingScroll();
+      } else if (action === "toggle-current-brutal-rule" && actionTarget.dataset.rule) {
+        await setCurrentGameBrutalRule(actionTarget.dataset.rule, actionTarget.checked);
       } else if (action === "set-settings-input-mode" && actionTarget.dataset.mode) {
         state.settings.defaultScoreInputMode =
           actionTarget.dataset.mode === SCORE_INPUT_MODES.cards ? SCORE_INPUT_MODES.cards : SCORE_INPUT_MODES.manual;
+        if (state.draft.newGame.gameMode === "classic" || state.draft.newGame.gameMode === "vengeance") {
+          state.draft.newGame.scoreInputMode = state.settings.defaultScoreInputMode;
+        }
         saveSettings();
         render();
+      } else if (action === "toggle-settings-brutal-rule" && actionTarget.dataset.rule) {
+        setSettingsVengeanceBrutalRule(actionTarget.dataset.rule, actionTarget.checked);
+        renderPreservingScroll();
       } else if (action === "add-player") {
         addDraftPlayer();
       } else if (action === "remove-player") {
@@ -6132,6 +7365,9 @@ function wireGlobalEvents() {
           return;
         }
 
+        const currentPlayerId = state.draft.cardPickerPlayerId || getCardPickerNavigatorState(game).currentPlayerId;
+        const currentSelection = currentPlayerId ? (getRoundCardSelections(game)[currentPlayerId] || []) : [];
+        const currentStats = currentPlayerId ? getFlip7CardSelectionStats(currentSelection, game) : null;
         const navigator = getCardPickerNavigatorState(game);
         const targetPlayerId =
           actionTarget.dataset.direction === "prev" ? navigator.previousPlayerId : navigator.nextPlayerId;
@@ -6139,6 +7375,21 @@ function wireGlobalEvents() {
           return;
         }
 
+        if (currentPlayerId && currentStats?.flip7Bonus) {
+          if (canUseFlip7AwardWorkflow(game) && !isResolvedFlip7Award(game, currentPlayerId)) {
+            state.draft.flip7AwardModalPlayerId = currentPlayerId;
+            state.draft.cardPickerPlayerId = currentPlayerId;
+            if (state.data.currentGame) {
+              cacheRoundDraft(state.data.currentGame);
+            }
+            render();
+            return;
+          }
+
+          if (!canUseFlip7AwardWorkflow(game)) {
+            setRoundFlip7Award(game, currentPlayerId, { type: "selfBonus" });
+          }
+        }
         state.draft.cardPickerPlayerId = targetPlayerId;
         if (state.data.currentGame) {
           cacheRoundDraft(state.data.currentGame);
@@ -6183,8 +7434,31 @@ function wireGlobalEvents() {
         const token = actionTarget.dataset.cardToken;
         const nextStats = toggleRoundCardSelection(game, playerId, token);
         state.draft.cardPickerPlayerId = playerId;
+        if (nextStats?.flip7Bonus) {
+          if (canUseFlip7AwardWorkflow(game) && !isResolvedFlip7Award(game, playerId)) {
+            state.draft.flip7AwardModalPlayerId = playerId;
+            if (state.data.currentGame) {
+              cacheRoundDraft(state.data.currentGame);
+            }
+            render();
+            return;
+          }
+
+          if (!canUseFlip7AwardWorkflow(game)) {
+            setRoundFlip7Award(game, playerId, { type: "selfBonus" });
+          }
+        } else if (state.draft.flip7AwardModalPlayerId === playerId) {
+          state.draft.flip7AwardModalPlayerId = null;
+        }
         if (nextStats) {
-          syncCurrentGameCardPickerState(game, playerId);
+          if (state.draft.flip7AwardModalPlayerId === playerId) {
+            if (state.data.currentGame) {
+              cacheRoundDraft(state.data.currentGame);
+            }
+            render();
+          } else {
+            syncCurrentGameCardPickerState(game, playerId);
+          }
         }
       } else if (action === "clear-card-selection" && actionTarget.dataset.playerId) {
         if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
@@ -6193,12 +7467,66 @@ function wireGlobalEvents() {
 
         const playerId = actionTarget.dataset.playerId;
         clearRoundCardSelection(game, playerId);
-        state.draft.roundScores = {
-          ...state.draft.roundScores,
-          [playerId]: ""
-        };
         state.draft.cardPickerPlayerId = playerId;
+        if (state.draft.flip7AwardModalPlayerId === playerId) {
+          state.draft.flip7AwardModalPlayerId = null;
+        }
         syncCurrentGameCardPickerState(game, playerId);
+      } else if (action === "set-flip7-award" && actionTarget.dataset.playerId && actionTarget.dataset.awardType) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const playerId = actionTarget.dataset.playerId;
+        if (actionTarget.dataset.awardType === "targetPenalty") {
+          const existingTarget = state.draft.roundFlip7Awards?.[playerId]?.targetPlayerId;
+          const targetPlayerId = existingTarget || getFirstFlip7AwardTarget(game, playerId);
+          if (!targetPlayerId) {
+            return;
+          }
+          setRoundFlip7Award(game, playerId, { type: "targetPenalty", targetPlayerId });
+        } else {
+          setRoundFlip7Award(game, playerId, { type: "selfBonus" });
+        }
+        state.draft.cardPickerPlayerId = playerId;
+        state.draft.flip7AwardModalPlayerId = playerId;
+        render();
+      } else if (action === "set-flip7-award-target" && actionTarget.dataset.playerId && actionTarget.dataset.targetPlayerId) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const playerId = actionTarget.dataset.playerId;
+        setRoundFlip7Award(game, playerId, {
+          type: "targetPenalty",
+          targetPlayerId: actionTarget.dataset.targetPlayerId
+        });
+        state.draft.cardPickerPlayerId = playerId;
+        state.draft.flip7AwardModalPlayerId = playerId;
+        render();
+      } else if (action === "accept-flip7-award" && actionTarget.dataset.playerId) {
+        if (!canUseCardMode || scoreInputMode !== SCORE_INPUT_MODES.cards) {
+          return;
+        }
+
+        const playerId = actionTarget.dataset.playerId;
+        state.draft.flip7AwardModalPlayerId = null;
+        state.draft.cardPickerPlayerId = playerId;
+        const pendingAward = state.draft.roundFlip7Awards?.[playerId];
+        const award =
+          pendingAward && (pendingAward.type === "selfBonus" || pendingAward.type === "targetPenalty")
+            ? pendingAward
+            : { type: "selfBonus" };
+        if (award.type === "targetPenalty") {
+          const targetPlayerId = award.targetPlayerId;
+          setRoundFlip7Award(game, playerId, {
+            type: "targetPenalty",
+            targetPlayerId: typeof targetPlayerId === "string" ? targetPlayerId : null
+          });
+        } else {
+          setRoundFlip7Award(game, playerId, { type: "selfBonus" });
+        }
+        render();
       } else if (action === "resume-game" && gameId) {
         if (swipeCard instanceof HTMLElement && swipeCard.classList.contains("revealed")) {
           clearHomeSwipeState();

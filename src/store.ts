@@ -1,5 +1,5 @@
 import { type Pool, type PoolClient } from "pg";
-import { Database, Game, GameMode, Player, Round, ScoreInputMode } from "./types";
+import { BrutalRules, Database, Flip7Award, Game, GameMode, Player, Round, ScoreInputMode } from "./types";
 
 const defaultDatabase = (): Database => ({
   currentGame: null,
@@ -9,6 +9,56 @@ const defaultDatabase = (): Database => ({
 const defaultWinningScore = 200;
 const defaultGameMode: GameMode = "classic";
 const defaultScoreInputMode: ScoreInputMode = "manual";
+const defaultBrutalRules: BrutalRules = {
+  allowNegativeRoundScore: false,
+  flip7BonusCanTargetOpponent: false
+};
+
+const normalizeBrutalRules = (value: unknown): BrutalRules => {
+  if (!value || typeof value !== "object") {
+    return { ...defaultBrutalRules };
+  }
+
+  const candidate = value as Partial<Record<keyof BrutalRules, unknown>>;
+  return {
+    allowNegativeRoundScore: candidate.allowNegativeRoundScore === true,
+    flip7BonusCanTargetOpponent: candidate.flip7BonusCanTargetOpponent === true
+  };
+};
+
+const normalizeFlip7Awards = (value: unknown): Flip7Award[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const awards = value
+    .map((award) => {
+      if (!award || typeof award !== "object") {
+        return null;
+      }
+
+      const candidate = award as Partial<Record<keyof Flip7Award, unknown>>;
+      if (typeof candidate.playerId !== "string" || candidate.playerId.length === 0) {
+        return null;
+      }
+
+      const type = candidate.type === "targetPenalty" ? "targetPenalty" : "selfBonus";
+      const targetPlayerId =
+        type === "targetPenalty" && typeof candidate.targetPlayerId === "string" && candidate.targetPlayerId.length > 0
+          ? candidate.targetPlayerId
+          : undefined;
+
+      return {
+        playerId: candidate.playerId,
+        type,
+        ...(targetPlayerId ? { targetPlayerId } : {}),
+        points: 15
+      };
+    })
+    .filter((award): award is Flip7Award => award !== null);
+
+  return awards.length ? awards : undefined;
+};
 
 const normalizePlayer = (value: unknown, fallbackJoinedAt = ""): Player | null => {
   if (!value || typeof value !== "object") {
@@ -93,6 +143,7 @@ const normalizeRound = (value: unknown): Round | null => {
     note: candidate.note,
     scoreInputMode,
     cardSelections,
+    flip7Awards: normalizeFlip7Awards(candidate.flip7Awards),
     scores
   };
 };
@@ -147,6 +198,7 @@ const normalizeGame = (value: unknown): Game | null => {
     id: candidate.id,
     title: candidate.title,
     gameMode,
+    brutalRules: gameMode === "vengeance" ? normalizeBrutalRules(candidate.brutalRules) : { ...defaultBrutalRules },
     winningScore,
     defaultScoreInputMode: defaultScoreInputModeValue,
     createdAt: candidate.createdAt,
