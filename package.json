@@ -1,6 +1,6 @@
 {
   "name": "flip7-scorekeeper",
-  "version": "2026.17.02",
+  "version": "2026.18.01",
   "private": true,
   "description": "A small Flip 7 score tracker built with Node.js, TypeScript, and a static HTML frontend.",
   "main": "dist/server.js",

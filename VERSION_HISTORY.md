@@ -2,6 +2,13 @@
 
 Version format: `YYYY.WW.VV`
 
+## 2026.18.01
+
+- Added Flip 7: With a Vengeance support, including the new number cards, Lucky 13, Unlucky 7, and Vengeance modifier cards.
+- Added Brutal Mode controls for Vengeance tables, plus the +15 / -15 Flip 7 award flow and related scoring fixes.
+- Added session title editing with localized weekday-based suggestions and kept the title stable across play again and tuck away.
+- Fixed card-mode scoring so Flip 7 bonuses are counted once for manual, card, and AI scan workflows.
+
 ## 2026.17.02
 
 - Added localized session title suggestions based on weekday plus rotating descriptor words.
