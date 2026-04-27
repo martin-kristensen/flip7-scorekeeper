@@ -1515,7 +1515,8 @@ function getCardRoundBaseScores(game, selections = state.draft.roundCardSelectio
   for (const player of players) {
     const selection = Array.isArray(selections?.[player.id]) ? selections[player.id] : [];
     if (selection.length) {
-      scores[player.id] = String(getFlip7CardSelectionStats(selection, game).total);
+      const stats = getFlip7CardSelectionStats(selection, game);
+      scores[player.id] = String(stats.total - stats.flip7Bonus);
       continue;
     }
 
