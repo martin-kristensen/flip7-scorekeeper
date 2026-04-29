@@ -292,7 +292,13 @@
     "swedish": "Svensk",
     "danish": "Dansk",
     "resetPrefs": "Nulstil bordindstillinger",
-    "keepNote": "Nye spil beholder deres egen målscore."
+    "keepNote": "Nye spil beholder deres egen målscore.",
+    "versionLabel": "Version {{version}}",
+    "viewReleaseNotes": "Vis versionsnoter",
+    "viewReleaseNotesAria": "Vis versionsnoter for version {{version}}",
+    "releaseNotesTitle": "Versionsnoter",
+    "releaseNotesLead": "En hurtig log over, hvad der ændrede sig i hver version.",
+    "closeReleaseNotes": "Luk versionsnoterne"
   },
   "archiveConfirm": {
     "title": "Læg dette spil væk?",

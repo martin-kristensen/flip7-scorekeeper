@@ -79,6 +79,11 @@ body[data-scan-capture-active] {
   touch-action: none;
 }
 
+body[data-overlay-open="true"] {
+  overflow: hidden;
+  touch-action: none;
+}
+
 body[data-scan-ui-active] .app-bar,
 body[data-scan-ui-active] #system-banner {
   display: none;
@@ -1923,12 +1928,34 @@ textarea {
   margin: 1rem 0 0;
   padding-top: 0.7rem;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
+  width: 100%;
+  display: grid;
+  gap: 0.22rem;
+  justify-items: center;
   text-align: center;
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--muted-strong) 72%, var(--text));
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  padding-inline: 0;
   opacity: 0.88;
+}
+
+.settings-version-label {
+  font-weight: 700;
+}
+
+.settings-version-hint {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--muted);
 }
 
 .round-history-item {
@@ -2074,6 +2101,74 @@ textarea {
   border: 1px solid var(--surface-border);
   box-shadow: var(--shadow);
   padding: 1.1rem;
+}
+
+.release-notes-panel {
+  width: min(640px, 100%);
+  max-height: min(44rem, calc(100dvh - 1.5rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.release-notes-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border-radius: 999px;
+}
+
+.release-notes-header {
+  display: grid;
+  gap: 0.25rem;
+  padding-right: 3rem;
+}
+
+.release-notes-header h2 {
+  margin: 0;
+}
+
+.release-notes-body {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-right: 0.15rem;
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.release-note-entry {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-soft);
+}
+
+.release-note-entry h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.release-note-entry ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.release-note-entry li {
+  color: var(--muted-strong);
+  line-height: 1.45;
 }
 
 .modal-actions {
@@ -2418,6 +2513,10 @@ textarea {
     padding: 1.4rem;
   }
 
+  .release-notes-panel {
+    padding: 1.25rem;
+  }
+
   .score-row {
     grid-template-columns: minmax(0, 1fr) 140px;
   }
@@ -2523,6 +2622,10 @@ textarea {
 
   .current-secondary-actions .secondary-action {
     min-height: 4rem;
+  }
+
+  .release-notes-body {
+    gap: 0.65rem;
   }
 
   .scan-round-view {

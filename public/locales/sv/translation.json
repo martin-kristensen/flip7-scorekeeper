@@ -266,14 +266,14 @@
     "lowestSingleScore": "Lägsta enskilda poäng",
     "totalRounds": "Totalt antal omgångar",
     "averageRound": "Genomsnitt per omgång",
-    "highestRoundTotal": "Högsta omgångssumma",
-    "lowestRoundTotal": "Lägsta omgångssumma",
+    "highestRoundTotal": "Högsta omgång",
+    "lowestRoundTotal": "Lägsta omgång",
     "totalGames": "Spelade spel",
     "averageRoundsPerGame": "Snitt omgångar per spel",
     "perPlayerTotals": "Totalsumma per spelare",
     "roundHistory": "Omgångshistorik",
     "winner": "Vinnare",
-    "roundTotal": "Omgångssumma"
+    "roundTotal": "Omgång"
   },
   "settings": {
     "eyebrow": "Inställningar",
@@ -292,7 +292,13 @@
     "swedish": "Svenska",
     "danish": "Danska",
     "resetPrefs": "Återställ bordets inställningar",
-    "keepNote": "Nya spel behåller sitt eget mål."
+    "keepNote": "Nya spel behåller sitt eget mål.",
+    "versionLabel": "Version {{version}}",
+    "viewReleaseNotes": "Visa versionsanteckningar",
+    "viewReleaseNotesAria": "Visa versionsanteckningar för version {{version}}",
+    "releaseNotesTitle": "Versionsanteckningar",
+    "releaseNotesLead": "En snabb logg över vad som ändrades i varje version.",
+    "closeReleaseNotes": "Stäng versionsanteckningarna"
   },
   "archiveConfirm": {
     "title": "Lägg undan det här spelet?",

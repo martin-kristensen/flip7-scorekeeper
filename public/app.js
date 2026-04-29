@@ -44,6 +44,54 @@ const VENGEANCE_SPECIAL_CARDS = [
   { token: "special:lucky13", label: "Lucky 13", value: 13 },
   { token: "special:unlucky7", label: "Unlucky 7", value: 7 }
 ];
+const RELEASE_NOTES = [
+  {
+    version: "2026.18.01",
+    items: [
+      "Added Flip 7: With a Vengeance support, including the new number cards, Lucky 13, Unlucky 7, and Vengeance modifier cards.",
+      "Added Brutal Mode controls for Vengeance tables, plus the +15 / -15 Flip 7 award flow and related scoring fixes.",
+      "Added session title editing with localized weekday-based suggestions and kept the title stable across play again and tuck away.",
+      "Fixed card-mode scoring so Flip 7 bonuses are counted once for manual, card, and AI scan workflows."
+    ]
+  },
+  {
+    version: "2026.17.02",
+    items: [
+      "Added localized session title suggestions based on weekday plus rotating descriptor words.",
+      "Added live editing for the current session title in game details.",
+      "Kept the session title stable across play again and locked it when the game is tucked away."
+    ]
+  },
+  {
+    version: "2026.17.01",
+    items: [
+      "Added OpenAI-based card recognition for scan capture and kept scoring local in the app.",
+      "Added the /scan debug page with image upload, live token usage, latency, and model selection.",
+      "Added monthly token budget tracking for OpenAI scan usage.",
+      "Migrated app translations to i18next with English, Swedish, and Danish locale files.",
+      "Added scan summary editing improvements, including manual score entry and manual card selection."
+    ]
+  },
+  {
+    version: "2026.16.02",
+    items: [
+      "Added live player rename from game details.",
+      "Added editing support for cards-mode rounds, including stored card selections.",
+      "Locked manual score entry and card selection so each player uses one input method at a time.",
+      "Cleared manual scores when switching back from a card selection and fixed the manual-edit card mute state.",
+      "Updated card picker navigation to use compact previous/next player buttons."
+    ]
+  },
+  {
+    version: "2026.16.01",
+    items: [
+      "Initial cards coding release.",
+      "Added classic card input mode with real card art.",
+      "Added default input mode settings for new games and table defaults.",
+      "Added card-based score selection, Flip 7 bonus handling, and the picker UI."
+    ]
+  }
+];
 const FLIP7_CARD_ART_URLS = {
   "number:0": "/assets/cards/number_0.svg",
   "number:1": "/assets/cards/number_1.svg",
@@ -238,6 +286,7 @@ const state = {
   menu: null,
   confirmNextRoundOpen: false,
   confirmArchiveOpen: false,
+  releaseNotesOpen: false,
   data: {
     currentGame: null,
     history: []
@@ -312,6 +361,11 @@ const elements = {
   archiveConfirmMessage: document.querySelector("#archive-confirm-message"),
   archiveConfirmContinue: document.querySelector("#archive-confirm-continue"),
   archiveConfirmCancel: document.querySelector("#archive-confirm-cancel"),
+  releaseNotesModal: document.querySelector("#release-notes-modal"),
+  releaseNotesClose: document.querySelector("#release-notes-close"),
+  releaseNotesTitle: document.querySelector("#release-notes-title"),
+  releaseNotesLead: document.querySelector("#release-notes-lead"),
+  releaseNotesBody: document.querySelector("#release-notes-body"),
   flip7AwardModal: document.querySelector("#flip7-award-modal"),
   flip7AwardTitle: document.querySelector("#flip7-award-title"),
   flip7AwardMessage: document.querySelector("#flip7-award-message"),
@@ -3153,6 +3207,7 @@ function setRoute(route, { replace = false } = {}) {
   state.menu = null;
   state.confirmNextRoundOpen = false;
   state.confirmArchiveOpen = false;
+  state.releaseNotesOpen = false;
 
   if (replace) {
     window.location.replace(`#${route}`);
@@ -3825,6 +3880,16 @@ function openArchiveConfirmModal() {
 
 function closeArchiveConfirmModal() {
   state.confirmArchiveOpen = false;
+  render();
+}
+
+function openReleaseNotesModal() {
+  state.releaseNotesOpen = true;
+  render();
+}
+
+function closeReleaseNotesModal() {
+  state.releaseNotesOpen = false;
   render();
 }
 
@@ -5493,11 +5558,59 @@ function renderSettingsScreen() {
           </select>
         </label>
       </form>
-      <p class="settings-version" aria-label="${escapeHtml(`Version ${APP_VERSION}`)}">
-        ${escapeHtml(`Version ${APP_VERSION}`)}
-      </p>
+      <button
+        class="settings-version"
+        type="button"
+        data-action="open-release-notes"
+        aria-label="${escapeHtml(t("settings.viewReleaseNotesAria", { version: APP_VERSION }))}"
+      >
+        <span class="settings-version-label">${escapeHtml(t("settings.versionLabel", { version: APP_VERSION }))}</span>
+        <span class="settings-version-hint">${escapeHtml(t("settings.viewReleaseNotes"))}</span>
+      </button>
     </section>
   `;
+}
+
+function renderReleaseNotesModal() {
+  if (!elements.releaseNotesModal) {
+    return;
+  }
+
+  elements.releaseNotesModal.classList.toggle("hidden", !state.releaseNotesOpen);
+  elements.releaseNotesModal.setAttribute("aria-hidden", String(!state.releaseNotesOpen));
+
+  if (!state.releaseNotesOpen) {
+    if (elements.releaseNotesBody) {
+      elements.releaseNotesBody.innerHTML = "";
+    }
+    return;
+  }
+
+  if (elements.releaseNotesTitle) {
+    elements.releaseNotesTitle.textContent = t("settings.releaseNotesTitle");
+  }
+
+  if (elements.releaseNotesLead) {
+    elements.releaseNotesLead.textContent = t("settings.releaseNotesLead");
+  }
+
+  if (elements.releaseNotesClose) {
+    elements.releaseNotesClose.setAttribute("aria-label", t("settings.closeReleaseNotes"));
+  }
+
+  if (elements.releaseNotesBody) {
+    elements.releaseNotesBody.scrollTop = 0;
+    elements.releaseNotesBody.innerHTML = RELEASE_NOTES.map((entry) => {
+      const items = entry.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+
+      return `
+        <article class="release-note-entry">
+          <h3>${escapeHtml(entry.version)}</h3>
+          <ul>${items}</ul>
+        </article>
+      `;
+    }).join("");
+  }
 }
 
 function renderScreen(name, html) {
@@ -5582,7 +5695,13 @@ function renderDrawer() {
   elements.drawer.classList.toggle("hidden", !state.drawerOpen);
   elements.appBackdrop.classList.toggle(
     "hidden",
-    !(state.drawerOpen || state.menu || state.confirmNextRoundOpen || state.confirmArchiveOpen)
+    !(
+      state.drawerOpen ||
+      state.menu ||
+      state.confirmNextRoundOpen ||
+      state.confirmArchiveOpen ||
+      state.releaseNotesOpen
+    )
   );
   elements.menuButton.setAttribute("aria-expanded", String(state.drawerOpen));
 }
@@ -5595,6 +5714,20 @@ function renderChrome() {
   renderMenu();
   renderConfirmModal();
   renderArchiveConfirmModal();
+  renderReleaseNotesModal();
+  const overlayOpen = Boolean(
+    state.drawerOpen ||
+      state.menu ||
+      state.confirmNextRoundOpen ||
+      state.confirmArchiveOpen ||
+      state.releaseNotesOpen ||
+      state.draft.flip7AwardModalPlayerId
+  );
+  if (overlayOpen) {
+    document.body.dataset.overlayOpen = "true";
+  } else {
+    delete document.body.dataset.overlayOpen;
+  }
 }
 
 function render() {
@@ -5604,6 +5737,10 @@ function render() {
 
   if (state.route !== "current-game") {
     hideCelebration();
+  }
+
+  if (state.route !== "settings") {
+    state.releaseNotesOpen = false;
   }
 
   setScanUiActive(state.route === "current-game" && Boolean(state.draft.scanRound?.active));
@@ -5662,7 +5799,11 @@ function render() {
         focusCurrentScoreInput();
       }
     } else if (state.route === "settings") {
-      document.querySelector("#settings-winning-score")?.focus();
+      if (state.releaseNotesOpen) {
+        elements.releaseNotesClose?.focus({ preventScroll: true });
+      } else {
+        document.querySelector("#settings-winning-score")?.focus();
+      }
     }
   });
 }
@@ -6899,6 +7040,12 @@ function wireGlobalEvents() {
     }
   });
 
+  elements.releaseNotesModal.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
+      closeReleaseNotesModal();
+    }
+  });
+
   elements.flip7AwardModal.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.classList.contains("modal-backdrop")) {
       state.draft.flip7AwardModalPlayerId = null;
@@ -7136,9 +7283,10 @@ function wireGlobalEvents() {
   });
 
   document.addEventListener("keydown", async (event) => {
-    if (event.key === "Escape" && (state.confirmNextRoundOpen || state.confirmArchiveOpen)) {
+    if (event.key === "Escape" && (state.confirmNextRoundOpen || state.confirmArchiveOpen || state.releaseNotesOpen)) {
       closeConfirmModal();
       closeArchiveConfirmModal();
+      closeReleaseNotesModal();
       return;
     }
 
@@ -7299,6 +7447,10 @@ function wireGlobalEvents() {
       } else if (action === "toggle-settings-brutal-rule" && actionTarget.dataset.rule) {
         setSettingsVengeanceBrutalRule(actionTarget.dataset.rule, actionTarget.checked);
         renderPreservingScroll();
+      } else if (action === "open-release-notes") {
+        openReleaseNotesModal();
+      } else if (action === "close-release-notes") {
+        closeReleaseNotesModal();
       } else if (action === "add-player") {
         addDraftPlayer();
       } else if (action === "remove-player") {

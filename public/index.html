@@ -119,6 +119,21 @@
       </div>
     </section>
 
+    <section id="release-notes-modal" class="modal release-notes-modal hidden" aria-live="polite" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel release-notes-panel" role="dialog" aria-modal="true" aria-labelledby="release-notes-title" aria-describedby="release-notes-lead">
+        <button id="release-notes-close" class="icon-button release-notes-close" type="button" data-action="close-release-notes" aria-label="Close release notes">
+          ×
+        </button>
+        <div class="release-notes-header">
+          <p class="eyebrow">Flip 7</p>
+          <h2 id="release-notes-title">Release notes</h2>
+          <p id="release-notes-lead" class="muted">A quick log of what changed in each release.</p>
+        </div>
+        <div id="release-notes-body" class="release-notes-body"></div>
+      </div>
+    </section>
+
     <section id="flip7-award-modal" class="modal hidden" aria-live="polite" aria-hidden="true">
       <div class="modal-backdrop"></div>
       <div class="modal-panel">

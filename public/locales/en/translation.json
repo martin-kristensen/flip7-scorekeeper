@@ -292,7 +292,13 @@
     "swedish": "Svenska",
     "danish": "Dansk",
     "resetPrefs": "Reset table settings",
-    "keepNote": "New games keep their own target score."
+    "keepNote": "New games keep their own target score.",
+    "versionLabel": "Version {{version}}",
+    "viewReleaseNotes": "View release notes",
+    "viewReleaseNotesAria": "View release notes for version {{version}}",
+    "releaseNotesTitle": "Release notes",
+    "releaseNotesLead": "A quick log of what changed in each release.",
+    "closeReleaseNotes": "Close release notes"
   },
   "archiveConfirm": {
     "title": "Tuck away this game?",
