@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /scan
 
-Sitemap: https://flip.se/sitemap.xml
+Sitemap: https://flip7.se/sitemap.xml

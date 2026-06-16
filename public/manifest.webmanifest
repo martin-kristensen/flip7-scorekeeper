@@ -1,8 +1,8 @@
 {
   "name": "Flip 7 Scorekeeper",
   "short_name": "Flip 7",
-  "start_url": "/#home",
-  "scope": "/",
+  "start_url": "https://flip7.se/#home",
+  "scope": "https://flip7.se/",
   "display": "standalone",
   "background_color": "#1b140f",
   "theme_color": "#ff9f5d",
