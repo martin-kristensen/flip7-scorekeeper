@@ -314,6 +314,7 @@ const state = {
     scoreInputMode: initialSettings.defaultScoreInputMode,
     cardPickerPlayerId: null,
     flip7AwardModalPlayerId: null,
+    roundSaveInFlight: false,
     currentRoundKey: "new",
     liveRoundVersion: 0,
     roundNote: "",
@@ -340,7 +341,8 @@ const state = {
     rafId: null,
     timeoutId: null,
     burstTimers: [],
-    presentation: null
+    presentation: null,
+    dismissableAt: 0
   },
   loading: true,
   systemError: null
@@ -4967,7 +4969,7 @@ function renderCurrentGameScreen() {
             ? `<button class="primary-action" type="button" data-action="play-again">${escapeHtml(
                 t("current.playAgain")
               )}</button>`
-            : `<button class="primary-action" type="submit">${escapeHtml(
+            : `<button class="primary-action" type="submit" data-action="save-round">${escapeHtml(
                 roundNavigator.isLive ? t("current.saveRound") : t("current.backToLive")
               )}</button>`
         }
@@ -5851,6 +5853,8 @@ function clearCelebrationTimers() {
     state.celebration.timeoutId = null;
   }
 
+  state.celebration.dismissableAt = 0;
+
   state.celebration.burstTimers.forEach((timerId) => window.clearTimeout(timerId));
   state.celebration.burstTimers = [];
 }
@@ -5991,6 +5995,7 @@ function showCelebration(winnerPresentation) {
 
   hideCelebration();
   state.celebration.presentation = winnerPresentation;
+  state.celebration.dismissableAt = Date.now() + 4000;
   elements.celebration.classList.remove("hidden");
   elements.celebration.classList.add("celebration-pulse");
   elements.celebration.setAttribute("aria-hidden", "false");
@@ -6019,11 +6024,14 @@ function showCelebration(winnerPresentation) {
   }
 
   startCelebrationFireworks();
-  if (!isTied) {
-    state.celebration.timeoutId = window.setTimeout(() => {
-      hideCelebration();
-    }, 2800);
-  }
+}
+
+function canDismissCelebration() {
+  return Boolean(
+    state.celebration.presentation &&
+      state.celebration.dismissableAt > 0 &&
+      Date.now() >= state.celebration.dismissableAt
+  );
 }
 
 async function startSuddenDeathFromCelebration() {
@@ -6973,11 +6981,25 @@ async function deleteArchivedGame(gameId) {
 }
 
 async function saveRound() {
+  if (state.draft.roundSaveInFlight) {
+    return;
+  }
+
   if (requirePendingFlip7AwardChoice(state.data.currentGame)) {
     return;
   }
 
-  return commitRoundDraft("new", { force: true });
+  state.draft.roundSaveInFlight = true;
+  try {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && activeElement.closest("#current-game-form")) {
+      activeElement.blur();
+    }
+
+    return await commitRoundDraft("new", { force: true });
+  } finally {
+    state.draft.roundSaveInFlight = false;
+  }
 }
 
 function wireGlobalEvents() {
@@ -7061,12 +7083,32 @@ function wireGlobalEvents() {
     hideCelebration();
   });
 
+  elements.celebration.addEventListener("click", (event) => {
+    if (!(event.target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (event.target.closest("button")) {
+      return;
+    }
+
+    if (canDismissCelebration()) {
+      hideCelebration();
+    }
+  });
+
   elements.toast.addEventListener("pointerdown", hideToast);
   elements.toast.addEventListener("click", hideToast);
 
   document.addEventListener("pointerdown", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.matches('#current-game-form [data-action="save-round"]')) {
+      event.preventDefault();
+      void saveRound();
       return;
     }
 
@@ -7262,8 +7304,10 @@ function wireGlobalEvents() {
     }
 
     state.draft.cardPickerPlayerId = playerId;
-    cacheRoundDraft(game);
-    renderPreservingScroll();
+    if (state.draft.scoreInputMode === SCORE_INPUT_MODES.cards) {
+      cacheRoundDraft(game);
+      renderPreservingScroll();
+    }
   });
 
   document.addEventListener("focusout", (event) => {
