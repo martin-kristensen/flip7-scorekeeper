@@ -6,23 +6,28 @@
     <title>Flip 7 Scorekeeper | Mobile score tracker for Flip 7</title>
     <meta
       name="description"
-      content="Flip 7 Scorekeeper is a mobile-first score tracker for Flip 7 tables. Track rounds, winners, game history, and player totals on flip.se."
+      content="Free Flip 7 scorekeeper for phones and tablets. Track Flip 7 rounds, player totals, winners, history, and game stats without paper scoring."
     />
+    <meta name="application-name" content="Flip 7 Scorekeeper" />
+    <meta name="keywords" content="Flip 7 scorekeeper, Flip 7 score tracker, Flip 7 scoring app, Flip 7 scoresheet, Flip 7 game score" />
     <meta name="robots" content="index,follow" />
     <meta name="theme-color" content="#ff9f5d" />
     <meta name="color-scheme" content="dark light" />
     <link rel="canonical" href="https://flip.se/" />
+    <link rel="alternate" href="https://flip.se/" hreflang="x-default" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <link rel="mask-icon" href="/assets/site-icon.svg" color="#ff9f5d" />
     <meta property="og:site_name" content="Flip 7 Scorekeeper" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://flip.se/" />
-    <meta property="og:title" content="Flip 7 Scorekeeper" />
+    <meta property="og:title" content="Flip 7 Scorekeeper | Free mobile score tracker" />
     <meta
       property="og:description"
-      content="A mobile-first score tracker for Flip 7 tables. Track rounds, winners, and game history on flip.se."
+      content="Track Flip 7 rounds, player totals, winners, history, and game stats from your phone."
     />
     <meta property="og:image" content="https://flip.se/assets/share-card.png" />
     <meta property="og:image:type" content="image/png" />
@@ -30,10 +35,10 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Flip 7 Scorekeeper" />
+    <meta name="twitter:title" content="Flip 7 Scorekeeper | Free mobile score tracker" />
     <meta
       name="twitter:description"
-      content="A mobile-first score tracker for Flip 7 tables. Track rounds, winners, and game history on flip.se."
+      content="Track Flip 7 rounds, player totals, winners, history, and game stats from your phone."
     />
     <meta name="twitter:image" content="https://flip.se/assets/share-card.png" />
     <meta name="twitter:image:alt" content="Flip 7 Scorekeeper" />
@@ -44,10 +49,19 @@
         "@context": "https://schema.org",
         "@type": "WebApplication",
         "name": "Flip 7 Scorekeeper",
+        "alternateName": "Flip 7 Score Tracker",
         "url": "https://flip.se/",
         "applicationCategory": "GameApplication",
         "operatingSystem": "Web",
-        "description": "A mobile-first score tracker for Flip 7 tables. Track rounds, winners, game history, and player totals."
+        "browserRequirements": "Requires JavaScript",
+        "inLanguage": ["en", "sv", "da"],
+        "description": "A free mobile-first Flip 7 scorekeeper for tracking rounds, player totals, winners, game history, and stats.",
+        "image": "https://flip.se/assets/share-card.png",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
       }
     </script>
   </head>
@@ -83,7 +97,13 @@
     </nav>
 
     <main class="app-shell">
-      <section id="screen-home" class="screen"></section>
+      <section id="screen-home" class="screen">
+        <h1>Flip 7 Scorekeeper</h1>
+        <p>
+          A free mobile score tracker for Flip 7. Track rounds, player totals, winners, game history,
+          and table stats in English, Swedish, or Danish.
+        </p>
+      </section>
       <section id="screen-new-game" class="screen hidden"></section>
       <section id="screen-existing-games" class="screen hidden"></section>
       <section id="screen-current-game" class="screen hidden"></section>
@@ -158,6 +178,16 @@
     </section>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <noscript>
+      <section>
+        <h2>Flip 7 scoring without paper</h2>
+        <p>
+          Flip 7 Scorekeeper helps you run a Flip 7 table from a phone or tablet with fast round
+          scoring, game history, winners, and player totals. JavaScript is required to use the app.
+        </p>
+      </section>
+    </noscript>
 
     <script src="/vendor/i18next.min.js" defer></script>
     <script src="/scan-image-utils.js" defer></script>
